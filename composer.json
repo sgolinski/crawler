@@ -1,0 +1,13 @@
+{
+    "name": "szymon/crawler-coin-market-cap",
+    "autoload": {
+        "psr-4": {
+            "CrawlerCoinMarketCap\\": "src/"
+        }
+    },
+    "require": {
+        "symfony/panther": "^2.0",
+        "symfony/css-selector": "^6.0",
+        "alek13/slack": "^2.2"
+    }
+}
