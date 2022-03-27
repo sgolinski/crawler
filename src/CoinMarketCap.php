@@ -35,9 +35,12 @@ class CoinMarketCap
     public function checkIfIsBscAndSendMessage()
     {
         foreach ($this->currentRound as $coin) {
-            $message = new Message();
-            $message->setText($coin->getDescription());
-            $this->slack->sendMessage($message);
+            assert($coin instanceof Coin);
+            if ($coin->mainet == 'bsc') {
+                $message = new Message();
+                $message->setText($coin->getDescription());
+                $this->slack->sendMessage($message);
+            }
         }
 
     }

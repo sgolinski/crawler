@@ -32,7 +32,7 @@ RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"\
 
 # copy all files to the image
 ADD /src src
-ADD /index2.php index.php
+ADD /index.php index.php
 ADD /composer.json composer.json
 ADD /composer.lock composer.lock
 
