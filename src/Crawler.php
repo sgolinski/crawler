@@ -12,6 +12,8 @@ class Crawler
 {
     private PantherClient $client;
 
+    public $linksForCMC;
+
     private const SCRIPT = <<<EOF
 // get all DIV elements
 var items = document.querySelectorAll('div');
@@ -47,6 +49,7 @@ EOF;
     {
         $this->client = PantherClient::createChromeClient();
         $this->returnArray = [];
+        $this->linksForCMC = [];
     }
 
     public function invoke()
@@ -97,14 +100,15 @@ EOF;
                 echo 'Error when crawl information ' . $e->getMessage() . PHP_EOL;
                 continue;
             }
-            if ($percent > 30.00) {
+
                 $this->returnArray[] = new Coin($name, $price, $percent, $link);
-            }
+
         }
     }
 
     private function assignDetailInformationToCoin()
     {
+
         foreach ($this->returnArray as $coin) {
 
             $this->client->refreshCrawler();
@@ -115,10 +119,14 @@ EOF;
                 ->getAttribute('href');
             assert($coin instanceof Coin);
             if (!empty($cont) && str_contains($cont, 'bsc')) {
+
                 $coin->setMainet('bsc');
                 $coin->setAddress($cont);
+                $this->linksForCMC[] = $coin->getCmcLink();
             }
         }
 
     }
+
+
 }
