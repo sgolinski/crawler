@@ -298,6 +298,4 @@ $arr = [
     "https://coinmarketcap.com/currencies/cub-finance/                             ",
     "https://coinmarketcap.com/currencies/monster-galaxy/                          ",
     "https://coinmarketcap.com/currencies/jojo/                                    ",
-
-
 ];

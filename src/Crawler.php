@@ -47,7 +47,7 @@ EOF;
 
     public function __construct()
     {
-        $this->client = PantherClient::createChromeClient();
+        $this->client = PantherClientSingleton::getChromeClient();
         $this->returnArray = [];
         $this->linksForCMC = [];
     }
@@ -101,7 +101,7 @@ EOF;
                 continue;
             }
 
-                $this->returnArray[] = new Coin($name, $price, $percent, $link);
+            $this->returnArray[] = new Coin($name, $price, $percent, $link);
 
         }
     }
@@ -122,7 +122,7 @@ EOF;
 
                 $coin->setMainet('bsc');
                 $coin->setAddress($cont);
-                $this->linksForCMC[] = $coin->getCmcLink();
+                $this->linksForCMC[] = $coin->getCmcLink() . PHP_EOL;
             }
         }
 
