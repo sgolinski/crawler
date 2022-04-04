@@ -12,7 +12,7 @@ class Crawler
 {
     private PantherClient $client;
 
-    public $linksForCMC;
+    public string $linksForCMC;
 
     private const SCRIPT = <<<EOF
 // get all DIV elements
@@ -49,7 +49,7 @@ EOF;
     {
         $this->client = PantherClientSingleton::getChromeClient();
         $this->returnArray = [];
-        $this->linksForCMC = [];
+        $this->linksForCMC = '';
     }
 
     public function invoke()
@@ -100,9 +100,10 @@ EOF;
                 echo 'Error when crawl information ' . $e->getMessage() . PHP_EOL;
                 continue;
             }
-
-            $this->returnArray[] = new Coin($name, $price, $percent, $link);
-
+            $this->linksForCMC .= $link . PHP_EOL;
+            if ($percent < 30) {
+                $this->returnArray[] = new Coin($name, $price, $percent, $link);
+            }
         }
     }
 

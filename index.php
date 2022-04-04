@@ -23,16 +23,17 @@ file_put_contents('coins_from_cmc.txt', $crawler->linksForCMC, FILE_APPEND);
 if (empty($currentCoins)) {
     die('Nothing to show' . PHP_EOL);
 }
-file_put_contents('last_rounded_coins.txt', serialize($currentCoins));
-
+if (count($currentCoins) > 0) {
+    file_put_contents('last_rounded_coins.txt', serialize($currentCoins));
+}
 $cmc->invoke($currentCoins);
 echo 'Downloading information about gainers and losers ' . date("F j, Y, g:i a") . PHP_EOL;
 
 $cmc->linksForAlerts = array_unique($cmc->linksForAlerts);
 $count = count(explode("\n", file_get_contents('coins_from_cmc.txt')));
 
-if ($count >= 50) {
+if ($count >= 500) {
     $cmc->sendAttachment(file_get_contents('coins_from_cmc.txt'));
     unlink('coins_from_cmc.txt');
 }
-sleep(30);
+sleep(60);
