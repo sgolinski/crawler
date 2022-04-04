@@ -123,10 +123,15 @@ EOF;
 
                 $coin->setMainet('bsc');
                 $coin->setAddress($cont);
-                $this->linksForCMC[] = $coin->getCmcLink() . PHP_EOL;
+
             }
         }
 
+    }
+
+    public function getClient(): PantherClient
+    {
+        return $this->client;
     }
 
 

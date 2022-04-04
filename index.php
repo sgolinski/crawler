@@ -21,6 +21,7 @@ $currentCoins = $crawler->getReturnArray();
 file_put_contents('coins_from_cmc.txt', $crawler->linksForCMC, FILE_APPEND);
 
 if (empty($currentCoins)) {
+    $crawler->getClient()->quit();
     die('Nothing to show' . PHP_EOL);
 }
 if (count($currentCoins) > 0) {
