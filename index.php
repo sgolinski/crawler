@@ -33,8 +33,8 @@ echo 'Downloading information about gainers and losers ' . date("F j, Y, g:i a")
 $cmc->linksForAlerts = array_unique($cmc->linksForAlerts);
 $count = count(explode("\n", file_get_contents('coins_from_cmc.txt')));
 
-if ($count >= 500) {
+if ($count >= 200) {
     $cmc->sendAttachment(file_get_contents('coins_from_cmc.txt'));
     unlink('coins_from_cmc.txt');
 }
-sleep(60);
+sleep(30);
