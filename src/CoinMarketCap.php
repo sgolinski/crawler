@@ -20,7 +20,6 @@ class CoinMarketCap
     {
         $this->slack = new SlackClient(self::HOOK);
         $this->takeCoinsFromLastRound();
-        $this->linksForAlerts = [];
     }
 
     public function invoke($coins): void
@@ -37,13 +36,12 @@ class CoinMarketCap
     {
         foreach ($this->currentRound as $coin) {
             assert($coin instanceof Coin);
-            if ($coin->mainet == 'bsc' && $coin->percent > 30.00) {
+            if ($coin->mainet == 'bsc') {
                 $message = new Message();
                 $message->setText($coin->getDescription());
                 $this->slack->sendMessage($message);
             }
         }
-
     }
 
     private function takeCoinsFromLastRound(): void
@@ -61,7 +59,6 @@ class CoinMarketCap
     public function setCurrentCoins(array $currentCoins)
     {
         $this->currentRound = $currentCoins;
-
     }
 
     public static function removeDuplicates($arr1, $arr2)
@@ -85,19 +82,4 @@ class CoinMarketCap
             return $arr1;
         }
     }
-
-    public function sendAttachment($file)
-    {
-
-        $this->slack
-            ->attach([
-                'fallback' => 'List of coins.',
-                'text' => $file,
-                'author_name' => 'cmc',
-                'author_link' => 'cmc',
-            ])->to('#allnotification')->send(date("F j, Y, g:i a"));
-
-    }
-
-
 }

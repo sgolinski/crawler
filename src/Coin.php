@@ -63,19 +63,11 @@ class Coin
     public function getDescription(): ?string
     {
 
-
-        if ($this->address) {
-            $poocoin = str_replace("https://bscscan.com/token/", "https://poocoin.app/tokens/", $this->getAddress());
-            return "Name: " . $this->getName() . PHP_EOL .
-                "Drop percent: -" . $this->getPercent() . '%' . PHP_EOL .
-                "Cmc: " . $this->getCmcLink() . PHP_EOL .
-                "Poocoin:  " . $poocoin . PHP_EOL;
-        } else {
-            return "Name: " . $this->getName() . PHP_EOL .
-                "Drop percent: -" . $this->getPercent() . '%' . PHP_EOL .
-                "Cmc: " . $this->getCmcLink() . PHP_EOL ;
-        }
-
+        $poocoin = str_replace("https://bscscan.com/token/", "https://poocoin.app/tokens/", $this->getAddress());
+        return "Name: " . $this->getName() . PHP_EOL .
+            "Drop percent: -" . $this->getPercent() . '%' . PHP_EOL .
+            "Cmc: " . $this->getCmcLink() . PHP_EOL .
+            "Poocoin:  " . $poocoin . PHP_EOL;
     }
 
 }

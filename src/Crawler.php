@@ -49,7 +49,6 @@ EOF;
     {
         $this->client = PantherClientSingleton::getChromeClient();
         $this->returnArray = [];
-        $this->linksForCMC = '';
     }
 
     public function invoke()
@@ -100,9 +99,10 @@ EOF;
                 echo 'Error when crawl information ' . $e->getMessage() . PHP_EOL;
                 continue;
             }
-            $this->linksForCMC .= $link . PHP_EOL;
-            if ($percent < 30) {
+
+            if ($percent > 25) {
                 $this->returnArray[] = new Coin($name, $price, $percent, $link);
+                echo $name . " " . $percent . PHP_EOL;
             }
         }
     }
@@ -111,7 +111,6 @@ EOF;
     {
 
         foreach ($this->returnArray as $coin) {
-
             $this->client->refreshCrawler();
             $this->client->get($coin->getCmcLink());
             $cont = $this->client->getCrawler()
@@ -120,10 +119,8 @@ EOF;
                 ->getAttribute('href');
             assert($coin instanceof Coin);
             if (!empty($cont) && str_contains($cont, 'bsc')) {
-
                 $coin->setMainet('bsc');
                 $coin->setAddress($cont);
-
             }
         }
 
