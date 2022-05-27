@@ -102,7 +102,6 @@ EOF;
 
             if ($percent > 25) {
                 $this->returnArray[] = new Coin($name, $price, $percent, $link);
-                echo $name . " " . $percent . PHP_EOL;
             }
         }
     }
