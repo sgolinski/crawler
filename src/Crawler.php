@@ -100,7 +100,7 @@ EOF;
                 continue;
             }
 
-            if ($percent > 25) {
+            if ($percent > 20) {
                 $this->returnArray[] = new Coin($name, $price, $percent, $link);
             }
         }
