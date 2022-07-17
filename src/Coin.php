@@ -35,10 +35,6 @@ class Coin
         return $this->percent;
     }
 
-    public function getMainet(): string
-    {
-        return $this->mainet;
-    }
 
     public function setMainet(string $mainet): void
     {

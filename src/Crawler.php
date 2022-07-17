@@ -10,9 +10,7 @@ use Symfony\Component\Panther\Client as PantherClient;
 
 class Crawler
 {
-    private PantherClient $client;
-
-    public string $linksForCMC;
+    private $client;
 
     private const SCRIPT = <<<EOF
 // get all DIV elements
@@ -47,13 +45,15 @@ EOF;
 
     public function __construct()
     {
-        $this->client = PantherClientSingleton::getChromeClient();
+        $this->client = null;
         $this->returnArray = [];
     }
 
     public function invoke()
     {
         try {
+            echo "Start crawling " . date("F j, Y, g:i:s a") . PHP_EOL;
+            $this->client = PantherClient::createChromeClient();
             $this->client->start();
             $this->client->get('https://coinmarketcap.com/gainers-losers/');
             $this->client->executeScript(self::SCRIPT);

@@ -28,5 +28,3 @@ if (count($currentCoins) > 0) {
 }
 $cmc->invoke($currentCoins);
 echo 'Downloading information about gainers and losers ' . date("F j, Y, g:i a") . PHP_EOL;
-
-sleep(60);
