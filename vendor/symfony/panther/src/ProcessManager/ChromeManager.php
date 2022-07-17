@@ -145,7 +145,7 @@ final class ChromeManager implements BrowserManagerInterface
         ];
     }
 
-    private function get_unused_tcp_port()
+    public function get_unused_tcp_port()
     {
         $address = '127.0.0.1';
         // Create a new socket

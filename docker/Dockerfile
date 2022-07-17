@@ -10,7 +10,13 @@ ENV PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'
 RUN apk add libzip-dev libzip zip libxml2-dev \
     && docker-php-ext-install zip xml
 
-##
+
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/install-php-extensions && \
+    install-php-extensions sockets gd xdebug
+#
+
 # headless browser stuff
 RUN apk add --no-cache chromium chromium-chromedriver
 ARG GECKODRIVER_VERSION=0.30.0
@@ -20,7 +26,6 @@ RUN wget -q https://github.com/mozilla/geckodriver/releases/download/v$GECKODRIV
 
 ##
 # application stuff
-
 # this is the simplest way to use composer in your containers.
 # the trick is, that since docker 1.17 you can copy files from different images.
 # in this case, we simply copy the composer binary from the official composer image to our image ;)
