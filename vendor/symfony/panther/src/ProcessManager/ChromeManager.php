@@ -138,10 +138,23 @@ final class ChromeManager implements BrowserManagerInterface
         return [
             'scheme' => 'http',
             'host' => '127.0.0.1',
-            'port' => 9515,
+            'port' => $this->get_unused_tcp_port(),
             'path' => '/status',
             'chromedriver_arguments' => [],
             'capabilities' => [],
         ];
+    }
+
+    private function get_unused_tcp_port()
+    {
+        $address = '127.0.0.1';
+        // Create a new socket
+        $sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        // Bind the source address
+        socket_bind($sock, $address);
+        socket_getsockname($sock, $address, $port);
+        #echo $port;
+        socket_close($sock);
+        return $port;
     }
 }

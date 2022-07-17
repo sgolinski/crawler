@@ -57,13 +57,11 @@ EOF;
             $this->client->start();
             $this->client->get('https://coinmarketcap.com/gainers-losers/');
             $this->client->executeScript(self::SCRIPT);
-            sleep(2);
+            $this->client->refreshCrawler();
             $content = $this->getContent();
-            sleep(2);
             $this->assignElementsFromContent($content);
-            sleep(2);
             $this->assignDetailInformationToCoin();
-            sleep(2);
+
 
         } catch (Exception $exception) {
             echo $exception->getMessage() . PHP_EOL;
