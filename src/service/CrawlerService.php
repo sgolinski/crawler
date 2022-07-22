@@ -15,7 +15,6 @@ use CrawlerCoinMarketCap\Writer\FileWriter;
 use Exception;
 use Facebook\WebDriver\Remote\RemoteWebElement;
 use Facebook\WebDriver\WebDriverBy;
-use Symfony\Component\CssSelector\Parser\Token;
 use Symfony\Component\Panther\Client as PantherClient;
 
 class CrawlerService
@@ -106,7 +105,7 @@ EOF;
                     ->getText();
                 $percent = DropPercent::fromFloat((float)$percent);
 
-                if ($percent->asFloat() < 0) {
+                if ($percent->asFloat() < 20) {
                     continue;
                 }
 
