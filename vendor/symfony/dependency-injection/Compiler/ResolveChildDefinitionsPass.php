@@ -63,7 +63,6 @@ class ResolveChildDefinitionsPass extends AbstractRecursivePass
             throw $e;
         } catch (ExceptionInterface $e) {
             $r = new \ReflectionProperty($e, 'message');
-            $r->setAccessible(true);
             $r->setValue($e, sprintf('Service "%s": %s', $this->currentId, $e->getMessage()));
 
             throw $e;
@@ -188,6 +187,12 @@ class ResolveChildDefinitionsPass extends AbstractRecursivePass
         // autoconfigure is never taken from parent (on purpose)
         // and it's not legal on an instanceof
         $def->setAutoconfigured($definition->isAutoconfigured());
+
+        if (!$def->hasTag('proxy')) {
+            foreach ($parentDef->getTag('proxy') as $v) {
+                $def->addTag('proxy', $v);
+            }
+        }
 
         return $def;
     }

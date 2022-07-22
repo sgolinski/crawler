@@ -21,9 +21,9 @@ use Symfony\Component\DependencyInjection\Exception\EnvParameterException;
  */
 class Compiler
 {
-    private $passConfig;
+    private PassConfig $passConfig;
     private array $log = [];
-    private $serviceReferenceGraph;
+    private ServiceReferenceGraph $serviceReferenceGraph;
 
     public function __construct()
     {
@@ -81,7 +81,6 @@ class Compiler
 
                 if ($msg !== $resolvedMsg = $container->resolveEnvPlaceholders($msg, null, $usedEnvs)) {
                     $r = new \ReflectionProperty($prev, 'message');
-                    $r->setAccessible(true);
                     $r->setValue($prev, $resolvedMsg);
                 }
             } while ($prev = $prev->getPrevious());

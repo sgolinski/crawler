@@ -44,8 +44,7 @@ final class AmpHttpClient implements HttpClientInterface, LoggerAwareInterface, 
 
     private array $defaultOptions = self::OPTIONS_DEFAULTS;
     private static array $emptyDefaults = self::OPTIONS_DEFAULTS;
-
-    private $multi;
+    private AmpClientState $multi;
 
     /**
      * @param array    $defaultOptions     Default requests' options
@@ -58,7 +57,7 @@ final class AmpHttpClient implements HttpClientInterface, LoggerAwareInterface, 
      */
     public function __construct(array $defaultOptions = [], callable $clientConfigurator = null, int $maxHostConnections = 6, int $maxPendingPushes = 50)
     {
-        $this->defaultOptions['buffer'] = $this->defaultOptions['buffer'] ?? \Closure::fromCallable([__CLASS__, 'shouldBuffer']);
+        $this->defaultOptions['buffer'] ??= self::shouldBuffer(...);
 
         if ($defaultOptions) {
             [, $this->defaultOptions] = self::prepareRequest(null, null, $defaultOptions, $this->defaultOptions);
@@ -83,15 +82,15 @@ final class AmpHttpClient implements HttpClientInterface, LoggerAwareInterface, 
         }
 
         if ($options['bindto']) {
-            if (0 === strpos($options['bindto'], 'if!')) {
+            if (str_starts_with($options['bindto'], 'if!')) {
                 throw new TransportException(__CLASS__.' cannot bind to network interfaces, use e.g. CurlHttpClient instead.');
             }
-            if (0 === strpos($options['bindto'], 'host!')) {
+            if (str_starts_with($options['bindto'], 'host!')) {
                 $options['bindto'] = substr($options['bindto'], 5);
             }
         }
 
-        if ('' !== $options['body'] && 'POST' === $method && !isset($options['normalized_headers']['content-type'])) {
+        if (('' !== $options['body'] || 'POST' === $method || isset($options['normalized_headers']['content-length'])) && !isset($options['normalized_headers']['content-type'])) {
             $options['headers'][] = 'Content-Type: application/x-www-form-urlencoded';
         }
 
@@ -162,9 +161,7 @@ final class AmpHttpClient implements HttpClientInterface, LoggerAwareInterface, 
             foreach ($pushedResponses as [$pushedUrl, $pushDeferred]) {
                 $pushDeferred->fail(new CancelledException());
 
-                if ($this->logger) {
-                    $this->logger->debug(sprintf('Unused pushed response: "%s"', $pushedUrl));
-                }
+                $this->logger?->debug(sprintf('Unused pushed response: "%s"', $pushedUrl));
             }
         }
 

@@ -37,7 +37,7 @@ use Symfony\Component\Yaml\Yaml;
  */
 class YamlDumper extends Dumper
 {
-    private $dumper;
+    private YmlDumper $dumper;
 
     /**
      * Dumps the service container as an YAML string.
@@ -57,7 +57,7 @@ class YamlDumper extends Dumper
     {
         $code = "    $id:\n";
         if ($class = $definition->getClass()) {
-            if ('\\' === substr($class, 0, 1)) {
+            if (str_starts_with($class, '\\')) {
                 $class = substr($class, 1);
             }
 
@@ -245,7 +245,7 @@ class YamlDumper extends Dumper
         if ($value instanceof ServiceClosureArgument) {
             $value = $value->getValues()[0];
 
-            return new TaggedValue('service_closure', $this->getServiceCall((string) $value, $value));
+            return new TaggedValue('service_closure', $this->dumpValue($value));
         }
         if ($value instanceof ArgumentInterface) {
             $tag = $value;

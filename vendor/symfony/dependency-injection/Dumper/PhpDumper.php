@@ -69,7 +69,7 @@ class PhpDumper extends Dumper
     private ?\SplObjectStorage $inlinedDefinitions = null;
     private ?array $serviceCalls = null;
     private array $reservedVariables = ['instance', 'class', 'this', 'container'];
-    private $expressionLanguage;
+    private ExpressionLanguage $expressionLanguage;
     private ?string $targetDirRegex = null;
     private int $targetDirMaxMatches;
     private string $docStar;
@@ -90,7 +90,7 @@ class PhpDumper extends Dumper
     private string $serviceLocatorTag;
     private array $exportedVariables = [];
     private string $baseClass;
-    private $proxyDumper;
+    private ProxyDumper $proxyDumper;
 
     /**
      * {@inheritdoc}
@@ -221,12 +221,12 @@ class PhpDumper extends Dumper
             $this->addDefaultParametersMethod()
         ;
 
-        $proxyClasses = $proxyClasses ?? $this->generateProxyClasses();
+        $proxyClasses ??= $this->generateProxyClasses();
 
         if ($this->addGetService) {
             $code = preg_replace(
                 "/(\r?\n\r?\n    public function __construct.+?\\{\r?\n)/s",
-                "\n    protected \$getService;$1        \$this->getService = \\Closure::fromCallable([\$this, 'getService']);\n",
+                "\n    protected \Closure \$getService;$1        \$this->getService = \$this->getService(...);\n",
                 $code,
                 1
             );
@@ -334,7 +334,7 @@ EOF;
                     if (!$class || str_contains($class, '$') || \in_array($class, ['int', 'float', 'string', 'bool', 'resource', 'object', 'array', 'null', 'callable', 'iterable', 'mixed', 'void'], true)) {
                         continue;
                     }
-                    if (!(class_exists($class, false) || interface_exists($class, false) || trait_exists($class, false)) || ((new \ReflectionClass($class))->isUserDefined() && !\in_array($class, ['Attribute', 'JsonException', 'ReturnTypeWillChange', 'Stringable', 'UnhandledMatchError', 'ValueError'], true))) {
+                    if (!(class_exists($class, false) || interface_exists($class, false) || trait_exists($class, false)) || (new \ReflectionClass($class))->isUserDefined()) {
                         $code[$options['class'].'.preload.php'] .= sprintf("\$classes[] = '%s';\n", $class);
                     }
                 }
@@ -806,7 +806,7 @@ EOF;
             $return[] = sprintf(str_starts_with($class, '%') ? '@return object A %1$s instance' : '@return \%s', ltrim($class, '\\'));
         } elseif ($definition->getFactory()) {
             $factory = $definition->getFactory();
-            if (\is_string($factory)) {
+            if (\is_string($factory) && !str_starts_with($factory, '@=')) {
                 $return[] = sprintf('@return object An instance returned by %s()', $factory);
             } elseif (\is_array($factory) && (\is_string($factory[0]) || $factory[0] instanceof Definition || $factory[0] instanceof Reference)) {
                 $class = $factory[0] instanceof Definition ? $factory[0]->getClass() : (string) $factory[0];
@@ -891,7 +891,7 @@ EOF;
                         $code .= "            return self::do(\$container);\n";
                         $code .= "        };\n\n";
                     } else {
-                        $code .= sprintf("\\Closure::fromCallable([\$this, '%s']);\n\n", $methodName);
+                        $code .= sprintf("\$this->%s(...);\n\n", $methodName);
                     }
                 }
 
@@ -1132,6 +1132,15 @@ EOTXT
         if (null !== $definition->getFactory()) {
             $callable = $definition->getFactory();
 
+            if (['Closure', 'fromCallable'] === $callable && [0] === array_keys($definition->getArguments())) {
+                $callable = $definition->getArgument(0);
+                $arguments = ['...'];
+
+                if ($callable instanceof Reference || $callable instanceof Definition) {
+                    $callable = [$callable, '__invoke'];
+                }
+            }
+
             if (\is_array($callable)) {
                 if (!preg_match('/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/', $callable[1])) {
                     throw new RuntimeException(sprintf('Cannot dump definition because of invalid factory method (%s).', $callable[1] ?: 'n/a'));
@@ -1157,6 +1166,13 @@ EOTXT
                 }
 
                 return $return.sprintf("[%s, '%s'](%s)", $class, $callable[1], $arguments ? implode(', ', $arguments) : '').$tail;
+            }
+
+            if (\is_string($callable) && str_starts_with($callable, '@=')) {
+                return $return.sprintf('(($args = %s) ? (%s) : null)',
+                    $this->dumpValue(new ServiceLocatorArgument($definition->getArguments())),
+                    $this->getExpressionLanguage()->compile(substr($callable, 2), ['this' => 'container', 'args' => 'args'])
+                ).$tail;
             }
 
             return $return.sprintf('%s(%s)', $this->dumpLiteralClass($this->dumpValue($callable)), $arguments ? implode(', ', $arguments) : '').$tail;
@@ -1496,7 +1512,7 @@ EOF;
             $export = explode('0 => ', substr(rtrim($export, " ]\n"), 2, -1), 2);
 
             if ($hasEnum || preg_match("/\\\$this->(?:getEnv\('(?:[-.\w]*+:)*+\w++'\)|targetDir\.'')/", $export[1])) {
-                $dynamicPhp[$key] = sprintf('%scase %s: $value = %s; break;', $export[0], $this->export($key), $export[1]);
+                $dynamicPhp[$key] = sprintf('%s%s => %s,', $export[0], $this->export($key), $export[1]);
             } else {
                 $php[] = sprintf('%s%s => %s,', $export[0], $this->export($key), $export[1]);
             }
@@ -1559,10 +1575,10 @@ EOF;
         if ($dynamicPhp) {
             $loadedDynamicParameters = $this->exportParameters(array_combine(array_keys($dynamicPhp), array_fill(0, \count($dynamicPhp), false)), '', 8);
             $getDynamicParameter = <<<'EOF'
-        switch ($name) {
+        $value = match ($name) {
 %s
-            default: throw new InvalidArgumentException(sprintf('The dynamic parameter "%%s" must be defined.', $name));
-        }
+            default => throw new InvalidArgumentException(sprintf('The dynamic parameter "%%s" must be defined.', $name)),
+        };
         $this->loadedDynamicParameters[$name] = true;
 
         return $this->dynamicParameters[$name] = $value;
@@ -1739,7 +1755,18 @@ EOF;
 
                     $code = sprintf('return %s;', $code);
 
-                    return sprintf("function ()%s {\n            %s\n        }", $returnedType, $code);
+                    $attribute = '';
+                    if ($value instanceof Reference) {
+                        $attribute = 'name: '.$this->dumpValue((string) $value, $interpolate);
+
+                        if ($this->container->hasDefinition($value) && ($class = $this->container->findDefinition($value)->getClass()) && $class !== (string) $value) {
+                            $attribute .= ', class: '.$this->dumpValue($class, $interpolate);
+                        }
+
+                        $attribute = sprintf('#[\Closure(%s)] ', $attribute);
+                    }
+
+                    return sprintf("%sfunction ()%s {\n            %s\n        }", $attribute, $returnedType, $code);
                 }
 
                 if ($value instanceof IteratorArgument) {
@@ -1776,7 +1803,9 @@ EOF;
                     $serviceMap = '';
                     $serviceTypes = '';
                     foreach ($value->getValues() as $k => $v) {
-                        if (!$v) {
+                        if (!$v instanceof Reference) {
+                            $serviceMap .= sprintf("\n            %s => [%s],", $this->export($k), $this->dumpValue($v));
+                            $serviceTypes .= sprintf("\n            %s => '?',", $this->export($k));
                             continue;
                         }
                         $id = (string) $v;
@@ -1806,7 +1835,7 @@ EOF;
             if ($value->hasErrors() && $e = $value->getErrors()) {
                 return sprintf('throw new RuntimeException(%s)', $this->export(reset($e)));
             }
-            if (null !== $this->definitionVariables && $this->definitionVariables->contains($value)) {
+            if ($this->definitionVariables?->contains($value)) {
                 return $this->dumpValue($this->definitionVariables[$value], $interpolate);
             }
             if ($value->getMethodCalls()) {
@@ -2127,10 +2156,10 @@ EOF;
             $export = var_export($value, true);
         }
         if ($this->asFiles) {
-            if (false !== strpos($export, '$this')) {
+            if (str_contains($export, '$this')) {
                 $export = str_replace('$this', "$'.'this", $export);
             }
-            if (false !== strpos($export, 'function () {')) {
+            if (str_contains($export, 'function () {')) {
                 $export = str_replace('function () {', "function ('.') {", $export);
             }
         }

@@ -5,13 +5,17 @@ namespace CrawlerCoinMarketCap\service;
 use ArrayIterator;
 use CrawlerCoinMarketCap\CmcToken;
 use CrawlerCoinMarketCap\Reader\FileReader;
+use CrawlerCoinMarketCap\ValueObjects\Address;
+use CrawlerCoinMarketCap\ValueObjects\Chain;
 use CrawlerCoinMarketCap\ValueObjects\DropPercent;
 use CrawlerCoinMarketCap\ValueObjects\Name;
 use CrawlerCoinMarketCap\ValueObjects\Price;
 use CrawlerCoinMarketCap\ValueObjects\Url;
+use CrawlerCoinMarketCap\Writer\FileWriter;
 use Exception;
 use Facebook\WebDriver\Remote\RemoteWebElement;
 use Facebook\WebDriver\WebDriverBy;
+use Symfony\Component\CssSelector\Parser\Token;
 use Symfony\Component\Panther\Client as PantherClient;
 
 class CrawlerService
@@ -40,14 +44,21 @@ EOF;
 
     private array $returnArray;
 
-    private static array $LAST_ROUNDED_COINS;
+    private static array $lastRoundedCoins;
+
+    private array $tokensWithInformations = [];
+
+    private array $tokensWithoutInformation = [];
+
+    public static array $recorded_coins;
 
     private const URL = 'https://coinmarketcap.com/gainers-losers/';
 
     public function __construct()
     {
-        self::$LAST_ROUNDED_COINS = FileReader::read();
-        $this->returnArray = [];
+        self::$lastRoundedCoins = [];
+        self::$recorded_coins = FileReader::read();
+        $this->returnArray = FileReader::readSearchCoins();
     }
 
     public function invoke()
@@ -61,8 +72,14 @@ EOF;
             $this->assignElementsFromContent($content);
             $this->assignDetailInformationToCoin();
 
+            $lastRoundedCoins = array_merge(self::$lastRoundedCoins, $this->tokensWithInformations);
+            $uniqueLastRoundedCoins = $this->removeOldTokensAndRemoveDuplicates($lastRoundedCoins);
+            FileWriter::write($uniqueLastRoundedCoins);
+            FileWriter::writeAlreadyShown(self::$recorded_coins);
+
+            return $this->tokensWithInformations;
         } catch (Exception $exception) {
-            echo $exception->getMessage() . PHP_EOL;
+            echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
         } finally {
             $this->client->quit();
         }
@@ -83,34 +100,54 @@ EOF;
         foreach ($content as $webElement) {
             assert($webElement instanceof RemoteWebElement);
 
-
-            //Wyciagnij najpierw tylko nazwe;
-            //zapisuj baze danych z tokenami ile sie da
             try {
+
+                $percent = (float)$webElement->findElement(WebDriverBy::cssSelector('td:nth-child(4)'))
+                    ->getText();
+                $percent = DropPercent::fromFloat((float)$percent);
+
+                if ($percent->asFloat() < 0) {
+                    continue;
+                }
+
                 $name = $webElement->findElement(WebDriverBy::tagName('a'))
                     ->findElement(WebDriverBy::tagName('p'))->getText();
                 $name = Name::fromString($name);
 
+                $fromLastRound = $this->checkIfTokenIsNotFromLastRound($name);
 
+                if ($fromLastRound) {
+                    continue;
+                }
+                $find = $this->checkIfIsNotRecorded($name);
 
-                $url = $webElement->findElement(WebDriverBy::tagName('a'))
-                    ->getAttribute('href');
-                $url = Url::fromString($url);
+                if ($find) {
+                    $currentTimestamp = time();
+                    $find->setDropPercent($percent);
+                    $find->setCreated($currentTimestamp);
+                    $this->tokensWithInformations[] = $find;
+                    continue;
 
-                $price = $webElement->findElement(WebDriverBy::cssSelector('td:nth-child(3)'))
-                    ->getText();
-                $price = Price::fromFloat($price);
-                $percent = (float)$webElement->findElement(WebDriverBy::cssSelector('td:nth-child(4)'))
-                    ->getText();
-                $percent = DropPercent::fromFloat($percent);
+                } else {
+                    $url = $webElement->findElement(WebDriverBy::tagName('a'))
+                        ->getAttribute('href');
+                    $url = Url::fromString($url);
 
+                    $price = $webElement->findElement(WebDriverBy::cssSelector('td:nth-child(3)'))
+                        ->getText();
+                    $price = Price::fromFloat((float)$price);
+                    $percent = (float)$webElement->findElement(WebDriverBy::cssSelector('td:nth-child(4)'))
+                        ->getText();
+                    $percent = DropPercent::fromFloat($percent);
+                    $currentTimestamp = time();
+
+                    $address = Address::fromString('');
+                    $chain = Chain::fromString('');
+                    $this->tokensWithoutInformation[] = new CmcToken($name, $price, $percent, $url, $address, $currentTimestamp, $chain);
+                }
             } catch (Exception $e) {
                 echo 'Error when crawl information ' . $e->getMessage() . PHP_EOL;
                 continue;
-            }
-
-            if ($percent > 20) {
-                $this->returnArray[] = new CmcToken($name, $price, $percent, $url);
             }
         }
     }
@@ -118,20 +155,28 @@ EOF;
     private function assignDetailInformationToCoin()
     {
 
-        foreach ($this->returnArray as $coin) {
-            $this->client->refreshCrawler();
-            $this->client->get($coin->getCmcLink());
-            $cont = $this->client->getCrawler()
-                ->filter('div.content')
-                ->filter('a.cmc-link')
-                ->getAttribute('href');
-            assert($coin instanceof Coin);
-            if (!empty($cont) && str_contains($cont, 'bsc')) {
-                $coin->setMainet('bsc');
-                $coin->setAddress($cont);
+        foreach ($this->tokensWithoutInformation as $token) {
+            try {
+                $this->client->refreshCrawler();
+                $this->client->get($token->getUrl()->asString());
+                $cont = $this->client->getCrawler()
+                    ->filter('div.content')
+                    ->filter('a.cmc-link')
+                    ->getAttribute('href');
+
+                assert($token instanceof CmcToken);
+                if (!empty($cont) && str_contains($cont, 'bsc')) {
+                    $chain = Chain::fromString('bsc');
+                    $address = Address::fromString($cont);
+                    $newToken = new CmcToken($token->getName(), $token->getPrice(), $token->getPercent(), $token->getUrl(), $address, $token->getCreated(), $chain);
+                    $this->tokensWithInformations[] = $newToken;
+                    self::$recorded_coins[] = $newToken;
+                }
+            } catch (Exception $exception) {
+                continue;
             }
         }
-
+        $this->tokensWithoutInformation = [];
     }
 
     public function getClient(): PantherClient
@@ -150,5 +195,55 @@ EOF;
         $this->client->get(self::URL);
     }
 
+    private function checkIfIsNotRecorded(Name $name): ?CmcToken
+    {
+        foreach (self::$recorded_coins as $existedToken) {
+            assert($existedToken instanceof CmcToken);
+            if ($existedToken->getName()->asString() === $name->asString()) {
+                return $existedToken;
+            }
+        }
+        return null;
+    }
+
+    private function checkIfTokenIsNotFromLastRound(Name $name): bool
+    {
+        foreach (self::$lastRoundedCoins as $showedAlreadyToken) {
+            assert($showedAlreadyToken instanceof CmcToken);
+            if ($showedAlreadyToken->getName()->asString() === $name->asString()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function removeOldTokensAndRemoveDuplicates(array $lastRoundedCoins): array
+    {
+        {
+            $uniqueArray = [];
+            foreach ($lastRoundedCoins as $token) {
+                assert($token instanceof CmcToken);
+                if (empty($notUnique)) {
+                    $uniqueArray[] = $token;
+                }
+
+                foreach ($uniqueArray as $uniqueProve) {
+                    if ($token->getName()->asString() === $uniqueProve->getName()->asString()) {
+                        if ($token->getCreated() > $uniqueProve->created) {
+                            $uniqueProve->setCreated($token->created);
+                            continue;
+                        }
+                    }
+                }
+                $uniqueArray[] = $token;
+            }
+            return $uniqueArray;
+        }
+    }
+
+    public function getReturnArray(): array
+    {
+        return $this->returnArray;
+    }
 
 }
