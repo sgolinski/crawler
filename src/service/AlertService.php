@@ -1,12 +1,13 @@
 <?php
 
-namespace CrawlerCoinMarketCap;
+namespace CrawlerCoinMarketCap\service;
 
+use CrawlerCoinMarketCap\Coin;
 use Exception;
 use Maknz\Slack\Client as SlackClient;
 use Maknz\Slack\Message;
 
-class CoinMarketCap
+class AlertService
 {
     private array $currentRound;
 

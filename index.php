@@ -2,18 +2,13 @@
 
 use CrawlerCoinMarketCap\Coin;
 use CrawlerCoinMarketCap\CoinMarketCap;
-use CrawlerCoinMarketCap\Crawler;
-use Facebook\WebDriver\Remote\RemoteWebElement;
-use Facebook\WebDriver\WebDriverBy;
-use Maknz\Slack\Client as Slack;
-use Maknz\Slack\Message;
-use Symfony\Component\Panther\Client as PantherClient;
+use CrawlerCoinMarketCap\service\CrawlerService;
 
 require __DIR__ . '/vendor/autoload.php'; // Composer's autoloader
 
 header("Content-Type: text/plain");
 
-$crawler = new Crawler();
+$crawler = new CrawlerService();
 $cmc = new CoinMarketCap();
 $crawler->invoke();
 $currentCoins = $crawler->getReturnArray();

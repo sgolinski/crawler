@@ -1,17 +1,22 @@
 <?php
 
-namespace CrawlerCoinMarketCap;
+namespace CrawlerCoinMarketCap\service;
 
 use ArrayIterator;
+use CrawlerCoinMarketCap\CmcToken;
+use CrawlerCoinMarketCap\Reader\FileReader;
+use CrawlerCoinMarketCap\ValueObjects\DropPercent;
+use CrawlerCoinMarketCap\ValueObjects\Name;
+use CrawlerCoinMarketCap\ValueObjects\Price;
+use CrawlerCoinMarketCap\ValueObjects\Url;
 use Exception;
 use Facebook\WebDriver\Remote\RemoteWebElement;
 use Facebook\WebDriver\WebDriverBy;
 use Symfony\Component\Panther\Client as PantherClient;
 
-class Crawler
+class CrawlerService
 {
-    private $client;
-
+    private PantherClient $client;
     private const SCRIPT = <<<EOF
 // get all DIV elements
 var items = document.querySelectorAll('div');
@@ -35,27 +40,20 @@ EOF;
 
     private array $returnArray;
 
-    /**
-     * @return array
-     */
-    public function getReturnArray(): array
-    {
-        return $this->returnArray;
-    }
+    private static array $LAST_ROUNDED_COINS;
+
+    private const URL = 'https://coinmarketcap.com/gainers-losers/';
 
     public function __construct()
     {
-        $this->client = null;
+        self::$LAST_ROUNDED_COINS = FileReader::read();
         $this->returnArray = [];
     }
 
     public function invoke()
     {
         try {
-            echo "Start crawling " . date("F j, Y, g:i:s a") . PHP_EOL;
-            $this->client = PantherClient::createChromeClient();
-            $this->client->start();
-            $this->client->get('https://coinmarketcap.com/gainers-losers/');
+            $this->startClient();
             $this->client->executeScript(self::SCRIPT);
             sleep(1);
             $this->client->refreshCrawler();
@@ -84,22 +82,35 @@ EOF;
     {
         foreach ($content as $webElement) {
             assert($webElement instanceof RemoteWebElement);
+
+
+            //Wyciagnij najpierw tylko nazwe;
+            //zapisuj baze danych z tokenami ile sie da
             try {
                 $name = $webElement->findElement(WebDriverBy::tagName('a'))
                     ->findElement(WebDriverBy::tagName('p'))->getText();
-                $link = $webElement->findElement(WebDriverBy::tagName('a'))
+                $name = Name::fromString($name);
+
+
+
+                $url = $webElement->findElement(WebDriverBy::tagName('a'))
                     ->getAttribute('href');
+                $url = Url::fromString($url);
+
                 $price = $webElement->findElement(WebDriverBy::cssSelector('td:nth-child(3)'))
                     ->getText();
+                $price = Price::fromFloat($price);
                 $percent = (float)$webElement->findElement(WebDriverBy::cssSelector('td:nth-child(4)'))
                     ->getText();
+                $percent = DropPercent::fromFloat($percent);
+
             } catch (Exception $e) {
                 echo 'Error when crawl information ' . $e->getMessage() . PHP_EOL;
                 continue;
             }
 
             if ($percent > 20) {
-                $this->returnArray[] = new Coin($name, $price, $percent, $link);
+                $this->returnArray[] = new CmcToken($name, $price, $percent, $url);
             }
         }
     }
@@ -126,6 +137,17 @@ EOF;
     public function getClient(): PantherClient
     {
         return $this->client;
+    }
+
+    /**
+     * @return void
+     */
+    public function startClient(): void
+    {
+        echo "Start crawling " . date("F j, Y, g:i:s a") . PHP_EOL;
+        $this->client = PantherClient::createChromeClient();
+        $this->client->start();
+        $this->client->get(self::URL);
     }
 
 
