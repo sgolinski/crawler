@@ -216,9 +216,9 @@ EOF;
         foreach (self::$lastRoundedCoins as $showedAlreadyToken) {
             assert($showedAlreadyToken instanceof Token);
             if ($showedAlreadyToken->getName()->asString() === $name->asString()) {
-                if ($currentTime - $showedAlreadyToken->getCreated() > 3600) {
-                    return false;
-                }
+//                if ($currentTime - $showedAlreadyToken->getCreated() > 3600) {
+//                    return false;
+//                }
 //                if ($showedAlreadyToken->getPercent()->asFloat() !== $percent->asFloat()) {
 //                    return false;
 //                }
