@@ -30,6 +30,6 @@ class Name
         string $str
     ): string
     {
-        return strtolower($str);
+        return trim(strtolower($str));
     }
 }

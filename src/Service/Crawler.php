@@ -209,14 +209,14 @@ EOF;
 
     private function checkIfTokenIsNotFromLastRound(
         Name        $name,
-        DropPercent $percent
+
     ): bool
     {
         $currentTime = time();
         foreach (self::$lastRoundedCoins as $showedAlreadyToken) {
-            assert($showedAlreadyToken instanceof Token);
+
             if ($showedAlreadyToken->getName()->asString() === $name->asString()) {
-                if ($currentTime - $showedAlreadyToken->getCreated() > 3600) {
+                if ($currentTime - $showedAlreadyToken->getCreated() > 7200) {
                     return false;
                 }
 //                if ($showedAlreadyToken->getPercent()->asFloat() !== $percent->asFloat()) {
