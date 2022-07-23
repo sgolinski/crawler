@@ -122,15 +122,16 @@ EOF;
                     ->findElement(WebDriverBy::tagName('p'))->getText();
                 $name = Name::fromString($name);
 
-                $fromLastRound = $this->checkIfTokenIsNotFromLastRound($name);
-                $find = $this->getFromRecorded($name);
+                $fromLastRound = $this->returnTokenIfIsFromLastCronjob($name);
 
-                if ($fromLastRound && $find != null) {
-                    $this->tokensFromCurrentCronjob[] = $find;
+                if ($fromLastRound !== null) {
+                    $this->tokensFromCurrentCronjob[] = $fromLastRound;
                     continue;
                 }
 
-                if ($find) {
+                $find = $this->getFromRecordedTokens($name);
+
+                if ($find !== null) {
                     $currentTimestamp = time();
                     $find->setDropPercent($percent);
                     $find->setCreated($currentTimestamp);
@@ -197,7 +198,7 @@ EOF;
         echo 'Finish assigning chain and address ' . date('H:i:s', time()) . PHP_EOL;
     }
 
-    private function getFromRecorded(
+    private function getFromRecordedTokens(
         Name $name
     ): ?Token
     {
@@ -210,23 +211,17 @@ EOF;
         return null;
     }
 
-    private function checkIfTokenIsNotFromLastRound(
+    private function returnTokenIfIsFromLastCronjob(
         Name $name,
-    ): bool
+    ): ?Token
     {
-        $currentTime = time();
-        foreach ($this->tokensFromLastCronjob as $showedAlreadyToken) {
-            if ($showedAlreadyToken->getName()->asString() === $name->asString()) {
-                if ($currentTime - $showedAlreadyToken->getCreated() > 7200) {
-                    return false;
-                }
-//                if ($showedAlreadyToken->getPercent()->asFloat() !== $percent->asFloat()) {
-//                    return false;
-//                }
-                return true;
+
+        foreach ($this->tokensFromLastCronjob as $tokenFromLastCronjob) {
+            if ($tokenFromLastCronjob->getName()->asString() === $name->asString()) {
+                return $tokenFromLastCronjob;
             }
         }
-        return false;
+        return null;
     }
 
     public function getTokensWithInformation(): array
