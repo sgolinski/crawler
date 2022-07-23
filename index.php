@@ -18,4 +18,4 @@ if (empty($currentCoins)) {
 
 $alertService->sendMessage($currentCoins);
 
-echo 'Downloading information about gainers and losers ' . date("F j, Y, g:i a") . PHP_EOL;
+echo 'Downloading information about gainers and losers ' . date('H:i:s') . PHP_EOL;

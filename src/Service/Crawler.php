@@ -55,8 +55,8 @@ EOF;
 
     public function __construct()
     {
-        self::$lastRoundedCoins = FileReader::readTokensFromLastCronJob();
-        self::$recordedCoins = FileReader::readTokensAlreadyProcessed();
+        self::$lastRoundedCoins = [];
+        self::$recordedCoins = [];
     }
 
     public function invoke()
@@ -88,7 +88,6 @@ EOF;
             $list = $this->client->getCrawler()
                 ->filter('div.sc-1yw69nc-0.DaVcG.table-wrap > div > div:nth-child(2)')
                 ->filter('table.h7vnx2-2.cZkmip.cmc-table > tbody')
-                ->filter('tr:nth-child(-n+10)')
                 ->children()
                 ->getIterator();
 
@@ -229,7 +228,7 @@ EOF;
 
     private function startClient(): void
     {
-        echo "Start crawling " . date("F j, Y, g:i:s a") . PHP_EOL;
+        echo "Start crawling " . date("F j, Y, 'H:i:s'") . PHP_EOL;
         $this->client = PantherClient::createChromeClient();
         $this->client->start();
         $this->client->get(self::URL);
