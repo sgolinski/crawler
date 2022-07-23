@@ -55,9 +55,8 @@ EOF;
 
     public function __construct()
     {
-        self::$lastRoundedCoins = [];
-        self::$recorded_coins = FileReader::read();
-        $this->returnArray = FileReader::readSearchCoins();
+        self::$lastRoundedCoins =FileReader::read();
+        self::$recorded_coins =FileReader::readSearchCoins();
     }
 
     public function invoke()
@@ -76,7 +75,7 @@ EOF;
             FileWriter::write($uniqueLastRoundedCoins);
             FileWriter::writeAlreadyShown(self::$recorded_coins);
 
-            return $this->tokensWithInformations;
+
         } catch (Exception $exception) {
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
         } finally {
@@ -105,7 +104,7 @@ EOF;
                     ->getText();
                 $percent = DropPercent::fromFloat((float)$percent);
 
-                if ($percent->asFloat() < 20) {
+                if ($percent->asFloat() < 5) {
                     continue;
                 }
 
@@ -240,9 +239,14 @@ EOF;
         }
     }
 
-    public function getReturnArray(): array
+    /**
+     * @return array
+     */
+    public function getTokensWithInformations(): array
     {
-        return $this->returnArray;
+        return $this->tokensWithInformations;
     }
+
+
 
 }

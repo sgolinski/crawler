@@ -12,7 +12,9 @@ header("Content-Type: text/plain");
 $crawler = new CrawlerService();
 $alertService = new AlertService();
 
-$currentCoins = $crawler->invoke();
+
+$crawler->invoke();
+$currentCoins = $crawler->getTokensWithInformations();
 if (empty($currentCoins)) {
     $crawler->getClient()->quit();
     die('Nothing to show' . PHP_EOL);
