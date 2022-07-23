@@ -16,6 +16,7 @@ if (empty($currentCoins)) {
     die('Nothing to show' . PHP_EOL);
 }
 
+$crawler->resetTokensWithInformation();
 $alertService->sendMessage($currentCoins);
 
 echo 'Downloading information about gainers and losers ' . date('H:i:s') . PHP_EOL;
