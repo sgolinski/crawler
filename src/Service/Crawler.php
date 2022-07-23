@@ -49,14 +49,14 @@ EOF;
 
     private array $tokensWithoutInformation = [];
 
-    public static array $recorded_coins;
+    public static array $recordedCoins;
 
     private const URL = 'https://coinmarketcap.com/gainers-losers/';
 
     public function __construct()
     {
         self::$lastRoundedCoins = FileReader::read();
-        self::$recorded_coins = FileReader::readSearchCoins();
+        self::$recordedCoins = FileReader::readSearchCoins();
     }
 
     public function invoke()
@@ -71,7 +71,7 @@ EOF;
             $this->assignChainAndAddress();
 
             FileWriter::writeTokensFromLastCronJob($this->removeOldTokensAndDuplicatesFromLastRoundedTokens());
-            FileWriter::writeTokensToListTokensAlreadyProcessed(self::$recorded_coins);
+            FileWriter::writeTokensToListTokensAlreadyProcessed($this->removeDuplicatesFromRecordedTokens());
 
         } catch (Exception $exception) {
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
@@ -162,7 +162,7 @@ EOF;
                     $address = Address::fromString($cont);
                     $newToken = Factory::createBscToken($token->getName(), $token->getPrice(), $token->getPercent(), $token->getUrl(), $address, $token->getCreated(), $chain);
                     $this->tokensWithInformation[] = $newToken;
-                    self::$recorded_coins[] = $newToken;
+                    self::$recordedCoins[] = $newToken;
                 }
             } catch (Exception $exception) {
                 continue;
@@ -175,7 +175,7 @@ EOF;
         Name $name
     ): ?Token
     {
-        foreach (self::$recorded_coins as $existedToken) {
+        foreach (self::$recordedCoins as $existedToken) {
             assert($existedToken instanceof Token);
             if ($existedToken->getName()->asString() === $name->asString()) {
                 return $existedToken;
@@ -211,41 +211,42 @@ EOF;
             foreach ($uniqueArray as $uniqueProve) {
                 if ($token->getName()->asString() === $uniqueProve->getName()->asString()) {
                     if ($currentTime - $token->getCreated() > 7200) {
-                        continue;
+                        break;
                     }
                     if ($token->getCreated() > $uniqueProve->created) {
                         $uniqueProve->setCreated($token->created);
-                        continue;
+                        break;
                     }
+                } else {
+                    $uniqueArray[] = $token;
                 }
             }
-            $uniqueArray[] = $token;
         }
         return $uniqueArray;
-
     }
 
-    private function removeDuplicatesFromLastRoundedTokens(): array
+    private function removeDuplicatesFromRecordedTokens(): array
     {
         $uniqueArray = [];
-        $currentTime = time();
-        foreach (self::$recorded_coins as $token) {
+
+        foreach (self::$recordedCoins as $token) {
 
             assert($token instanceof Token);
             if (empty($notUnique)) {
                 $uniqueArray[] = $token;
             }
 
-            foreach ($uniqueArray as $uniqueProve) {
-                if ($token->getName()->asString() === $uniqueProve->getName()->asString()) {
-
-                    if ($token->getCreated() > $uniqueProve->created) {
-                        $uniqueProve->setCreated($token->created);
-                        continue;
+            foreach ($uniqueArray as $uniqueToken) {
+                if ($token->getName()->asString() === $uniqueToken->getName()->asString()) {
+                    if ($token->getCreated() > $uniqueToken->created) {
+                        $uniqueToken->setCreated($token->created);
                     }
+                    break;
+                } else {
+                    $uniqueToken[] = $token;
                 }
             }
-            $uniqueArray[] = $token;
+
         }
         return $uniqueArray;
     }
