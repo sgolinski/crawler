@@ -11,6 +11,6 @@ class FileReader implements Reader
 
     public static function readTokensAlreadyProcessed(): array
     {
-        return unserialize(file_get_contents('/mnt/app/tokens_already_recorded.txt'));
+        return unserialize(file_get_contents('/mnt/app/aptokens_already_recorded.txt'));
     }
 }
