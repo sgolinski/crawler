@@ -55,8 +55,8 @@ EOF;
 
     public function __construct()
     {
-        self::$lastRoundedCoins = FileReader::read();
-        self::$recordedCoins = FileReader::readSearchCoins();
+        self::$lastRoundedCoins = FileReader::readTokensFromLastCronJob();
+        self::$recordedCoins = FileReader::readTokensAlreadyProcessed();
     }
 
     public function invoke()
@@ -70,8 +70,8 @@ EOF;
             $this->createTokensFromContent($content);
             $this->assignChainAndAddress();
 
-            FileWriter::writeTokensFromLastCronJob($this->removeOldTokensAndDuplicatesFromLastRoundedTokens());
-            FileWriter::writeTokensToListTokensAlreadyProcessed($this->removeDuplicatesFromRecordedTokens());
+            FileWriter::writeTokensFromLastCronJob(self::$lastRoundedCoins);
+            FileWriter::writeTokensToListTokensAlreadyProcessed(self::$recordedCoins);
 
         } catch (Exception $exception) {
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
@@ -80,19 +80,31 @@ EOF;
         }
     }
 
-    public function getContent(): ArrayIterator
+    public function getContent(): ?ArrayIterator
     {
-        return $this->client->getCrawler()
-            ->filter('div.sc-1yw69nc-0.DaVcG.table-wrap > div > div:nth-child(2)')
-            ->filter('table.h7vnx2-2.cZkmip.cmc-table > tbody')
-            ->children()
-            ->getIterator();
+        echo 'Start getting content ' . date('H:i:s', time()) . PHP_EOL;
+        $list = null;
+        try {
+            $list = $this->client->getCrawler()
+                ->filter('div.sc-1yw69nc-0.DaVcG.table-wrap > div > div:nth-child(2)')
+                ->filter('table.h7vnx2-2.cZkmip.cmc-table > tbody')
+                ->filter('tr:nth-child(-n+10)')
+                ->children()
+                ->getIterator();
+
+        } catch (Exception $exception) {
+            echo $exception->getMessage();
+        }
+        echo 'Content downloaded ' . date('H:i:s', time()) . PHP_EOL;
+        return $list;
     }
 
     public function createTokensFromContent(
         ArrayIterator $content
     ): void
     {
+        echo 'Start creating tokens from content ' . date('H:i:s', time()) . PHP_EOL;
+
         foreach ($content as $webElement) {
             assert($webElement instanceof RemoteWebElement);
 
@@ -121,7 +133,7 @@ EOF;
                     $find->setDropPercent($percent);
                     $find->setCreated($currentTimestamp);
                     $this->tokensWithInformation[] = $find;
-                    continue;
+                    self::$lastRoundedCoins[] = $find;
 
                 } else {
                     $url = $webElement->findElement(WebDriverBy::tagName('a'))
@@ -143,10 +155,13 @@ EOF;
                 continue;
             }
         }
+        echo 'Finish creating tokens from content ' . date('H:i:s', time()) . PHP_EOL;
     }
 
     private function assignChainAndAddress(): void
     {
+        echo 'Start assigning chain and address ' . date('H:i:s', time()) . PHP_EOL;
+
         foreach ($this->tokensWithoutInformation as $token) {
             try {
                 $this->client->refreshCrawler();
@@ -169,6 +184,7 @@ EOF;
             }
         }
         $this->tokensWithoutInformation = [];
+        echo 'Finish assigning chain and address ' . date('H:i:s', time()) . PHP_EOL;
     }
 
     private function checkIfIsNotStored(
@@ -188,67 +204,17 @@ EOF;
         Name $name
     ): bool
     {
+        $currentTime = time();
         foreach (self::$lastRoundedCoins as $showedAlreadyToken) {
             assert($showedAlreadyToken instanceof Token);
             if ($showedAlreadyToken->getName()->asString() === $name->asString()) {
+                if ($currentTime - $showedAlreadyToken->getCreated() > 3600) {
+                    return false;
+                }
                 return true;
             }
         }
         return false;
-    }
-
-    private function removeOldTokensAndDuplicatesFromLastRoundedTokens(): array
-    {
-
-        $uniqueArray = [];
-        $currentTime = time();
-        foreach (self::$lastRoundedCoins as $token) {
-            assert($token instanceof Token);
-            if (empty($notUnique)) {
-                $uniqueArray[] = $token;
-            }
-
-            foreach ($uniqueArray as $uniqueProve) {
-                if ($token->getName()->asString() === $uniqueProve->getName()->asString()) {
-                    if ($currentTime - $token->getCreated() > 7200) {
-                        break;
-                    }
-                    if ($token->getCreated() > $uniqueProve->created) {
-                        $uniqueProve->setCreated($token->created);
-                        break;
-                    }
-                } else {
-                    $uniqueArray[] = $token;
-                }
-            }
-        }
-        return $uniqueArray;
-    }
-
-    private function removeDuplicatesFromRecordedTokens(): array
-    {
-        $uniqueArray = [];
-
-        foreach (self::$recordedCoins as $token) {
-
-            assert($token instanceof Token);
-            if (empty($notUnique)) {
-                $uniqueArray[] = $token;
-            }
-
-            foreach ($uniqueArray as $uniqueToken) {
-                if ($token->getName()->asString() === $uniqueToken->getName()->asString()) {
-                    if ($token->getCreated() > $uniqueToken->created) {
-                        $uniqueToken->setCreated($token->created);
-                    }
-                    break;
-                } else {
-                    $uniqueToken[] = $token;
-                }
-            }
-
-        }
-        return $uniqueArray;
     }
 
     public function getTokensWithInformation(): array

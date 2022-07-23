@@ -6,6 +6,8 @@ ENV PANTHER_NO_SANDBOX 1
 ENV PANTHER_CHROME_ARGUMENTS='--disable-dev-shm-usage'
 
 ##
+COPY /opcache.ini /usr/local/etc/php/conf.d/
+
 # needed php stuff
 RUN apk add libzip-dev libzip zip libxml2-dev \
     && docker-php-ext-install zip xml
