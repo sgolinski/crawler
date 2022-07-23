@@ -134,9 +134,7 @@ EOF;
                     $price = $webElement->findElement(WebDriverBy::cssSelector('td:nth-child(3)'))
                         ->getText();
                     $price = Price::fromFloat((float)$price);
-                    $percent = (float)$webElement->findElement(WebDriverBy::cssSelector('td:nth-child(4)'))
-                        ->getText();
-                    $percent = DropPercent::fromFloat($percent);
+
                     $currentTimestamp = time();
 
                     $address = Address::fromString('');
@@ -154,6 +152,7 @@ EOF;
     {
 
         foreach ($this->tokensWithoutInformation as $token) {
+
             try {
                 $this->client->refreshCrawler();
                 $this->client->get($token->getUrl()->asString());
