@@ -43,20 +43,22 @@ var dropdown = clickDiv.nextSibling;
 dropdown.querySelector("button").click();
 EOF;
 
-    private static array $lastRoundedCoins;
+    private array $tokensFromLastCronjob = [];
 
     private array $tokensWithInformation = [];
 
     private array $tokensWithoutInformation = [];
 
-    public static array $recordedCoins;
+    private array $tokensFromCurrentCronjob = [];
+
+    public array $allTokensProcessed;
 
     private const URL = 'https://coinmarketcap.com/gainers-losers/';
 
     public function __construct()
     {
-        self::$lastRoundedCoins = FileReader::readTokensFromLastCronJob();
-        self::$recordedCoins = FileReader::readTokensAlreadyProcessed();
+        $this->tokensFromLastCronjob = FileReader::readTokensFromLastCronJob();
+        $this->allTokensProcessed = FileReader::readTokensAlreadyProcessed();
     }
 
     public function invoke()
@@ -69,8 +71,9 @@ EOF;
             $content = $this->getContent();
             $this->createTokensFromContent($content);
             $this->assignChainAndAddress();
-            FileWriter::writeTokensFromLastCronJob(self::$lastRoundedCoins);
-            FileWriter::writeTokensToListTokensAlreadyProcessed(self::$recordedCoins);
+            $this->tokensFromLastCronjob = [];
+            FileWriter::writeTokensFromLastCronJob($this->tokensFromCurrentCronjob);
+            FileWriter::writeTokensToListTokensAlreadyProcessed($this->allTokensProcessed);
 
         } catch (Exception $exception) {
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
@@ -119,20 +122,20 @@ EOF;
                     ->findElement(WebDriverBy::tagName('p'))->getText();
                 $name = Name::fromString($name);
 
-                $fromLastRound = $this->checkIfTokenIsNotFromLastRound($name, $percent);
+                $fromLastRound = $this->checkIfTokenIsNotFromLastRound($name);
+                $find = $this->getFromRecorded($name);
 
-                if ($fromLastRound) {
-                    echo $name->asString() . PHP_EOL;
+                if ($fromLastRound && $find != null) {
+                    $this->tokensFromCurrentCronjob[] = $find;
                     continue;
                 }
-                $find = $this->checkIfIsNotStored($name);
 
                 if ($find) {
                     $currentTimestamp = time();
                     $find->setDropPercent($percent);
                     $find->setCreated($currentTimestamp);
                     $this->tokensWithInformation[] = $find;
-                    self::$lastRoundedCoins[] = $find;
+                    $this->tokensFromCurrentCronjob[] = $find;
 
                 } else {
                     $url = $webElement->findElement(WebDriverBy::tagName('a'))
@@ -183,8 +186,8 @@ EOF;
                         $chain
                     );
                     $this->tokensWithInformation[] = $newToken;
-                    self::$lastRoundedCoins[] = $newToken;
-                    self::$recordedCoins[] = $newToken;
+                    $this->tokensFromCurrentCronjob[] = $newToken;
+                    $this->allTokensProcessed[] = $newToken;
                 }
             } catch (Exception $exception) {
                 continue;
@@ -194,27 +197,25 @@ EOF;
         echo 'Finish assigning chain and address ' . date('H:i:s', time()) . PHP_EOL;
     }
 
-    private function checkIfIsNotStored(
+    private function getFromRecorded(
         Name $name
     ): ?Token
     {
-        foreach (self::$recordedCoins as $existedToken) {
-            assert($existedToken instanceof Token);
-            if ($existedToken->getName()->asString() === $name->asString()) {
-                return $existedToken;
+        foreach ($this->allTokensProcessed as $existedRecord) {
+            assert($existedRecord instanceof Token);
+            if ($existedRecord->getName()->asString() === $name->asString()) {
+                return $existedRecord;
             }
         }
         return null;
     }
 
     private function checkIfTokenIsNotFromLastRound(
-        Name        $name,
-
+        Name $name,
     ): bool
     {
         $currentTime = time();
-        foreach (self::$lastRoundedCoins as $showedAlreadyToken) {
-
+        foreach ($this->tokensFromLastCronjob as $showedAlreadyToken) {
             if ($showedAlreadyToken->getName()->asString() === $name->asString()) {
                 if ($currentTime - $showedAlreadyToken->getCreated() > 7200) {
                     return false;
