@@ -112,7 +112,7 @@ EOF;
                     ->getText();
                 $percent = DropPercent::fromFloat((float)$percent);
 
-                if ($percent->asFloat() < 5) {
+                if ($percent->asFloat() < 20.0) {
                     continue;
                 }
 
@@ -120,7 +120,7 @@ EOF;
                     ->findElement(WebDriverBy::tagName('p'))->getText();
                 $name = Name::fromString($name);
 
-                $fromLastRound = $this->checkIfTokenIsNotFromLastRound($name);
+                $fromLastRound = $this->checkIfTokenIsNotFromLastRound($name, $percent);
 
                 if ($fromLastRound) {
                     continue;
@@ -200,7 +200,8 @@ EOF;
     }
 
     private function checkIfTokenIsNotFromLastRound(
-        Name $name
+        Name        $name,
+        DropPercent $percent
     ): bool
     {
         $currentTime = time();
@@ -208,6 +209,9 @@ EOF;
             assert($showedAlreadyToken instanceof Token);
             if ($showedAlreadyToken->getName()->asString() === $name->asString()) {
                 if ($currentTime - $showedAlreadyToken->getCreated() > 3600) {
+                    return false;
+                }
+                if ($showedAlreadyToken->getPercent()->asFloat() !== $percent->asFloat()) {
                     return false;
                 }
                 return true;
@@ -228,7 +232,7 @@ EOF;
 
     private function startClient(): void
     {
-        echo "Start crawling " . date("F j, Y, 'H:i:s'") . PHP_EOL;
+        echo "Start crawling " . date("F j, Y,  H:i:s") . PHP_EOL;
         $this->client = PantherClient::createChromeClient();
         $this->client->start();
         $this->client->get(self::URL);
