@@ -55,8 +55,8 @@ EOF;
 
     public function __construct()
     {
-        self::$lastRoundedCoins = [];
-        self::$recordedCoins = [];
+        self::$lastRoundedCoins = FileReader::readTokensFromLastCronJob();
+        self::$recordedCoins = FileReader::readTokensAlreadyProcessed();
     }
 
     public function invoke()
@@ -174,8 +174,16 @@ EOF;
                 if (!empty($cont) && str_contains($cont, 'bsc')) {
                     $chain = Chain::fromString('bsc');
                     $address = Address::fromString($cont);
-                    $newToken = Factory::createBscToken($token->getName(), $token->getPrice(), $token->getPercent(), $token->getUrl(), $address, $token->getCreated(), $chain);
+                    $newToken = Factory::createBscToken(
+                        $token->getName(), $token->getPrice(),
+                        $token->getPercent(),
+                        $token->getUrl(),
+                        $address,
+                        $token->getCreated(),
+                        $chain
+                    );
                     $this->tokensWithInformation[] = $newToken;
+                    self::$lastRoundedCoins[] = $newToken;
                     self::$recordedCoins[] = $newToken;
                 }
             } catch (Exception $exception) {
@@ -211,9 +219,9 @@ EOF;
                 if ($currentTime - $showedAlreadyToken->getCreated() > 3600) {
                     return false;
                 }
-                if ($showedAlreadyToken->getPercent()->asFloat() !== $percent->asFloat()) {
-                    return false;
-                }
+//                if ($showedAlreadyToken->getPercent()->asFloat() !== $percent->asFloat()) {
+//                    return false;
+//                }
                 return true;
             }
         }
