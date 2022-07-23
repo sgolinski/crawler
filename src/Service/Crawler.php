@@ -1,9 +1,10 @@
 <?php
 
-namespace CrawlerCoinMarketCap\service;
+namespace CrawlerCoinMarketCap\Service;
 
 use ArrayIterator;
-use CrawlerCoinMarketCap\CmcToken;
+use CrawlerCoinMarketCap\Entity\Token;
+use CrawlerCoinMarketCap\Factory;
 use CrawlerCoinMarketCap\Reader\FileReader;
 use CrawlerCoinMarketCap\ValueObjects\Address;
 use CrawlerCoinMarketCap\ValueObjects\Chain;
@@ -17,9 +18,10 @@ use Facebook\WebDriver\Remote\RemoteWebElement;
 use Facebook\WebDriver\WebDriverBy;
 use Symfony\Component\Panther\Client as PantherClient;
 
-class CrawlerService
+class Crawler
 {
     private PantherClient $client;
+
     private const SCRIPT = <<<EOF
 // get all DIV elements
 var items = document.querySelectorAll('div');
@@ -41,11 +43,9 @@ var dropdown = clickDiv.nextSibling;
 dropdown.querySelector("button").click();
 EOF;
 
-    private array $returnArray;
-
     private static array $lastRoundedCoins;
 
-    private array $tokensWithInformations = [];
+    private array $tokensWithInformation = [];
 
     private array $tokensWithoutInformation = [];
 
@@ -55,8 +55,8 @@ EOF;
 
     public function __construct()
     {
-        self::$lastRoundedCoins =FileReader::read();
-        self::$recorded_coins =FileReader::readSearchCoins();
+        self::$lastRoundedCoins = FileReader::read();
+        self::$recorded_coins = FileReader::readSearchCoins();
     }
 
     public function invoke()
@@ -67,14 +67,11 @@ EOF;
             sleep(1);
             $this->client->refreshCrawler();
             $content = $this->getContent();
-            $this->assignElementsFromContent($content);
-            $this->assignDetailInformationToCoin();
+            $this->createTokensFromContent($content);
+            $this->assignChainAndAddress();
 
-            $lastRoundedCoins = array_merge(self::$lastRoundedCoins, $this->tokensWithInformations);
-            $uniqueLastRoundedCoins = $this->removeOldTokensAndRemoveDuplicates($lastRoundedCoins);
-            FileWriter::write($uniqueLastRoundedCoins);
-            FileWriter::writeAlreadyShown(self::$recorded_coins);
-
+            FileWriter::writeTokensFromLastCronJob($this->removeOldTokensAndDuplicatesFromLastRoundedTokens());
+            FileWriter::writeTokensToListTokensAlreadyProcessed(self::$recorded_coins);
 
         } catch (Exception $exception) {
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
@@ -92,14 +89,14 @@ EOF;
             ->getIterator();
     }
 
-
-    public function assignElementsFromContent(ArrayIterator $content)
+    public function createTokensFromContent(
+        ArrayIterator $content
+    ): void
     {
         foreach ($content as $webElement) {
             assert($webElement instanceof RemoteWebElement);
 
             try {
-
                 $percent = (float)$webElement->findElement(WebDriverBy::cssSelector('td:nth-child(4)'))
                     ->getText();
                 $percent = DropPercent::fromFloat((float)$percent);
@@ -117,13 +114,13 @@ EOF;
                 if ($fromLastRound) {
                     continue;
                 }
-                $find = $this->checkIfIsNotRecorded($name);
+                $find = $this->checkIfIsNotStored($name);
 
                 if ($find) {
                     $currentTimestamp = time();
                     $find->setDropPercent($percent);
                     $find->setCreated($currentTimestamp);
-                    $this->tokensWithInformations[] = $find;
+                    $this->tokensWithInformation[] = $find;
                     continue;
 
                 } else {
@@ -139,7 +136,7 @@ EOF;
 
                     $address = Address::fromString('');
                     $chain = Chain::fromString('');
-                    $this->tokensWithoutInformation[] = new CmcToken($name, $price, $percent, $url, $address, $currentTimestamp, $chain);
+                    $this->tokensWithoutInformation[] = Factory::createBscToken($name, $price, $percent, $url, $address, $currentTimestamp, $chain);
                 }
             } catch (Exception $e) {
                 echo 'Error when crawl information ' . $e->getMessage() . PHP_EOL;
@@ -148,11 +145,9 @@ EOF;
         }
     }
 
-    private function assignDetailInformationToCoin()
+    private function assignChainAndAddress(): void
     {
-
         foreach ($this->tokensWithoutInformation as $token) {
-
             try {
                 $this->client->refreshCrawler();
                 $this->client->get($token->getUrl()->asString());
@@ -161,12 +156,12 @@ EOF;
                     ->filter('a.cmc-link')
                     ->getAttribute('href');
 
-                assert($token instanceof CmcToken);
+                assert($token instanceof Token);
                 if (!empty($cont) && str_contains($cont, 'bsc')) {
                     $chain = Chain::fromString('bsc');
                     $address = Address::fromString($cont);
-                    $newToken = new CmcToken($token->getName(), $token->getPrice(), $token->getPercent(), $token->getUrl(), $address, $token->getCreated(), $chain);
-                    $this->tokensWithInformations[] = $newToken;
+                    $newToken = Factory::createBscToken($token->getName(), $token->getPrice(), $token->getPercent(), $token->getUrl(), $address, $token->getCreated(), $chain);
+                    $this->tokensWithInformation[] = $newToken;
                     self::$recorded_coins[] = $newToken;
                 }
             } catch (Exception $exception) {
@@ -176,26 +171,12 @@ EOF;
         $this->tokensWithoutInformation = [];
     }
 
-    public function getClient(): PantherClient
-    {
-        return $this->client;
-    }
-
-    /**
-     * @return void
-     */
-    public function startClient(): void
-    {
-        echo "Start crawling " . date("F j, Y, g:i:s a") . PHP_EOL;
-        $this->client = PantherClient::createChromeClient();
-        $this->client->start();
-        $this->client->get(self::URL);
-    }
-
-    private function checkIfIsNotRecorded(Name $name): ?CmcToken
+    private function checkIfIsNotStored(
+        Name $name
+    ): ?Token
     {
         foreach (self::$recorded_coins as $existedToken) {
-            assert($existedToken instanceof CmcToken);
+            assert($existedToken instanceof Token);
             if ($existedToken->getName()->asString() === $name->asString()) {
                 return $existedToken;
             }
@@ -203,10 +184,12 @@ EOF;
         return null;
     }
 
-    private function checkIfTokenIsNotFromLastRound(Name $name): bool
+    private function checkIfTokenIsNotFromLastRound(
+        Name $name
+    ): bool
     {
         foreach (self::$lastRoundedCoins as $showedAlreadyToken) {
-            assert($showedAlreadyToken instanceof CmcToken);
+            assert($showedAlreadyToken instanceof Token);
             if ($showedAlreadyToken->getName()->asString() === $name->asString()) {
                 return true;
             }
@@ -214,38 +197,75 @@ EOF;
         return false;
     }
 
-    private function removeOldTokensAndRemoveDuplicates(array $lastRoundedCoins): array
+    private function removeOldTokensAndDuplicatesFromLastRoundedTokens(): array
     {
-        {
-            $uniqueArray = [];
-            foreach ($lastRoundedCoins as $token) {
-                assert($token instanceof CmcToken);
-                if (empty($notUnique)) {
-                    $uniqueArray[] = $token;
-                }
 
-                foreach ($uniqueArray as $uniqueProve) {
-                    if ($token->getName()->asString() === $uniqueProve->getName()->asString()) {
-                        if ($token->getCreated() > $uniqueProve->created) {
-                            $uniqueProve->setCreated($token->created);
-                            continue;
-                        }
-                    }
-                }
+        $uniqueArray = [];
+        $currentTime = time();
+        foreach (self::$lastRoundedCoins as $token) {
+            assert($token instanceof Token);
+            if (empty($notUnique)) {
                 $uniqueArray[] = $token;
             }
-            return $uniqueArray;
+
+            foreach ($uniqueArray as $uniqueProve) {
+                if ($token->getName()->asString() === $uniqueProve->getName()->asString()) {
+                    if ($currentTime - $token->getCreated() > 7200) {
+                        continue;
+                    }
+                    if ($token->getCreated() > $uniqueProve->created) {
+                        $uniqueProve->setCreated($token->created);
+                        continue;
+                    }
+                }
+            }
+            $uniqueArray[] = $token;
         }
+        return $uniqueArray;
+
     }
 
-    /**
-     * @return array
-     */
-    public function getTokensWithInformations(): array
+    private function removeDuplicatesFromLastRoundedTokens(): array
     {
-        return $this->tokensWithInformations;
+        $uniqueArray = [];
+        $currentTime = time();
+        foreach (self::$recorded_coins as $token) {
+
+            assert($token instanceof Token);
+            if (empty($notUnique)) {
+                $uniqueArray[] = $token;
+            }
+
+            foreach ($uniqueArray as $uniqueProve) {
+                if ($token->getName()->asString() === $uniqueProve->getName()->asString()) {
+
+                    if ($token->getCreated() > $uniqueProve->created) {
+                        $uniqueProve->setCreated($token->created);
+                        continue;
+                    }
+                }
+            }
+            $uniqueArray[] = $token;
+        }
+        return $uniqueArray;
     }
 
+    public function getTokensWithInformation(): array
+    {
+        return $this->tokensWithInformation;
+    }
 
+    public function getClient(): PantherClient
+    {
+        return $this->client;
+    }
+
+    private function startClient(): void
+    {
+        echo "Start crawling " . date("F j, Y, g:i:s a") . PHP_EOL;
+        $this->client = PantherClient::createChromeClient();
+        $this->client->start();
+        $this->client->get(self::URL);
+    }
 
 }

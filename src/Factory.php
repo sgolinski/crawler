@@ -2,20 +2,50 @@
 
 namespace CrawlerCoinMarketCap;
 
-use CrawlerCoinMarketCap\service\AlertService;
-use CrawlerCoinMarketCap\service\CrawlerService;
-
+use CrawlerCoinMarketCap\Entity\BscToken;
+use CrawlerCoinMarketCap\Service\Alert;
+use CrawlerCoinMarketCap\Service\Crawler;
+use CrawlerCoinMarketCap\ValueObjects\Address;
+use CrawlerCoinMarketCap\ValueObjects\Chain;
+use CrawlerCoinMarketCap\ValueObjects\DropPercent;
+use CrawlerCoinMarketCap\ValueObjects\Name;
+use CrawlerCoinMarketCap\ValueObjects\Price;
+use CrawlerCoinMarketCap\ValueObjects\Url;
+use Maknz\Slack\Client as SlackClient;
+use Maknz\Slack\Message;
 
 class Factory
 {
-    public static function createCrawlerService(): CrawlerService
+    public static function createCrawlerService(): Crawler
     {
-        return new CrawlerService();
+        return new Crawler();
     }
 
-    public static function createAlert(): AlertService
+    public static function createAlertService(): Alert
     {
-        return new AlertService();
+        return new Alert();
     }
 
+    public static function createBscToken(
+        Name        $name,
+        Price       $price,
+        DropPercent $percent,
+        Url         $url,
+        Address     $address,
+        int         $created,
+        Chain       $chain
+    ): BscToken
+    {
+        return new BscToken($name, $price, $percent, $url, $address, $created, $chain);
+    }
+
+    public static function createSlackClient(string $hook): SlackClient
+    {
+        return new SlackClient($hook);
+    }
+
+    public static function createSlackMessage(): Message
+    {
+        return new Message();
+    }
 }

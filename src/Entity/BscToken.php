@@ -1,6 +1,6 @@
 <?php
 
-namespace CrawlerCoinMarketCap;
+namespace CrawlerCoinMarketCap\Entity;
 
 use CrawlerCoinMarketCap\ValueObjects\Address;
 use CrawlerCoinMarketCap\ValueObjects\Chain;
@@ -9,8 +9,7 @@ use CrawlerCoinMarketCap\ValueObjects\Name;
 use CrawlerCoinMarketCap\ValueObjects\Price;
 use CrawlerCoinMarketCap\ValueObjects\Url;
 
-
-class CmcToken
+class BscToken implements Token
 {
     public Name $name;
     public Price $price;
@@ -21,8 +20,14 @@ class CmcToken
     public int $created;
     public string $poocoinAddress;
 
-
-    public function __construct(Name $name, Price $price, DropPercent $percent, Url $url, Address $address, int $created, Chain $chain)
+    public function __construct(
+        Name        $name, Price $price,
+        DropPercent $percent,
+        Url         $url,
+        Address     $address,
+        int         $created,
+        Chain       $chain
+    )
     {
         $this->name = $name;
         $this->price = $price;
@@ -43,19 +48,17 @@ class CmcToken
         return $this->percent;
     }
 
-
     public function getAddress(): Address
     {
         return $this->address;
     }
-
 
     public function getUrl(): Url
     {
         return $this->url;
     }
 
-    public function getDescription(): ?string
+    public function alert(): ?string
     {
 
         return "Name: " . $this->getName()->asString() . PHP_EOL .
@@ -69,43 +72,37 @@ class CmcToken
         $this->percent = $dropPercent;
     }
 
-    public function setAddress(Address $address)
+    public function setAddress(Address $address): void
     {
         $this->address = $address;
         $this->poocoinAddress = str_replace("https://bscscan.com/token/", "https://poocoin.app/tokens/", $address->asString());
     }
 
-    public function setChain(Chain $chain)
+    public function setChain(Chain $chain): void
     {
         $this->chain = $chain;
     }
 
-    public function setCreated(int $created)
+    public function setCreated(int $created): void
     {
         $this->created = $created;
     }
 
-    public function getCreated()
+    public function getCreated(): int
     {
         return $this->created;
     }
 
-    public function getPrice()
+    public function getPrice(): Price
     {
         return $this->price;
     }
 
-    /**
-     * @return string
-     */
     public function getPoocoinAddress(): string
     {
         return $this->poocoinAddress;
     }
 
-    /**
-     * @return Chain|null
-     */
     public function getChain(): ?Chain
     {
         return $this->chain;

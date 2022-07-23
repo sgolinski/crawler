@@ -1,20 +1,16 @@
 <?php
 
-use CrawlerCoinMarketCap\CmcToken;
-
-use CrawlerCoinMarketCap\service\AlertService;
-use CrawlerCoinMarketCap\service\CrawlerService;
+use CrawlerCoinMarketCap\Factory;
 
 require __DIR__ . '/vendor/autoload.php'; // Composer's autoloader
 
 header("Content-Type: text/plain");
 
-$crawler = new CrawlerService();
-$alertService = new AlertService();
-
+$crawler = Factory::createCrawlerService();
+$alertService = Factory::createAlertService();
 
 $crawler->invoke();
-$currentCoins = $crawler->getTokensWithInformations();
+$currentCoins = $crawler->getTokensWithInformation();
 if (empty($currentCoins)) {
     $crawler->getClient()->quit();
     die('Nothing to show' . PHP_EOL);
