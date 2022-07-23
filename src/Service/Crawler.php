@@ -112,7 +112,7 @@ EOF;
                     ->getText();
                 $percent = DropPercent::fromFloat((float)$percent);
 
-                if ($percent->asFloat() < 20.0) {
+                if ($percent->asFloat() < 19.0) {
                     continue;
                 }
 
