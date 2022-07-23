@@ -69,12 +69,8 @@ EOF;
             $content = $this->getContent();
             $this->createTokensFromContent($content);
             $this->assignChainAndAddress();
-            echo 'Writting' . date('H:i:s', time()) . PHP_EOL;
             FileWriter::writeTokensFromLastCronJob(self::$lastRoundedCoins);
-            echo 'Written' . date('H:i:s', time()) . PHP_EOL;
-            echo 'Writting' . date('H:i:s', time()) . PHP_EOL;
             FileWriter::writeTokensToListTokensAlreadyProcessed(self::$recordedCoins);
-            echo 'Written' . date('H:i:s', time()) . PHP_EOL;
 
         } catch (Exception $exception) {
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
@@ -115,7 +111,7 @@ EOF;
                     ->getText();
                 $percent = DropPercent::fromFloat((float)$percent);
 
-                if ($percent->asFloat() < 1.0) {
+                if ($percent->asFloat() < 19.0) {
                     continue;
                 }
 
