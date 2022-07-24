@@ -25,17 +25,10 @@ interface Token
 
     public function getCreated(): int;
 
-    public function isComplete(): bool;
-
     public function setAddress(Address $address);
-
-    public function setData(): void;
 
     public function setChain(Chain $chain);
 
     public function setPoocoinAddress(Address $address): void;
 
-    public function isProcessed(): bool;
-
-    public function setProcessed(): void;
 }

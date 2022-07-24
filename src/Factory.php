@@ -33,11 +33,10 @@ class Factory
         Url         $url,
         Address     $address,
         int         $created,
-        Chain       $chain,
-        bool        $processed
+        Chain       $chain
     ): BscToken
     {
-        return new BscToken($name, $price, $percent, $url, $address, $created, $chain,$processed);
+        return new BscToken($name, $price, $percent, $url, $address, $created, $chain);
     }
 
     public static function createSlackClient(string $hook): SlackClient

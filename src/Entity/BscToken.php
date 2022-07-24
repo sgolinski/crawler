@@ -18,10 +18,7 @@ class BscToken implements Token
     public ?Address $address;
     public Url $url;
     public int $created;
-    private bool $completeData;
     private string $pooCoinAddress;
-    private bool $processed;
-
 
     public function __construct(
         Name        $name, Price $price,
@@ -30,7 +27,6 @@ class BscToken implements Token
         Address     $address,
         int         $created,
         Chain       $chain,
-        bool        $processed
     )
     {
         $this->name = $name;
@@ -40,8 +36,6 @@ class BscToken implements Token
         $this->address = $address;
         $this->created = $created;
         $this->chain = $chain;
-        $this->completeData = false;
-        $this->processed = $processed;
     }
 
     public function getName(): Name
@@ -66,7 +60,6 @@ class BscToken implements Token
 
     public function alert(): ?string
     {
-
         return "Name: " . $this->getName()->asString() . PHP_EOL .
             "Drop percent: -" . $this->getPercent()->asFloat() . '%' . PHP_EOL .
             "Cmc: " . $this->getUrl()->asString() . PHP_EOL .
@@ -95,11 +88,6 @@ class BscToken implements Token
         return $this->created;
     }
 
-    public function getPrice(): Price
-    {
-        return $this->price;
-    }
-
     public function getPoocoinAddress(): string
     {
         return str_replace("https://bscscan.com/token/", "https://poocoin.app/tokens/", $this->address->asString());
@@ -110,29 +98,9 @@ class BscToken implements Token
         return $this->chain;
     }
 
-    public function isComplete(): bool
-    {
-        return $this->completeData;
-    }
-
-    public function setData(): void
-    {
-        $this->completeData = true;
-    }
-
     public function setChain(Chain $chain)
     {
         $this->chain = $chain;
-    }
-
-    public function isProcessed(): bool
-    {
-        return $this->processed;
-    }
-
-    public function setProcessed(): void
-    {
-        $this->processed = true;
     }
 
     public function setPoocoinAddress(Address $address): void

@@ -12,11 +12,9 @@ class RedisWriter implements Writer
     {
         foreach ($tokens as $token) {
             assert($token instanceof Token);
-            if (!$token->isProcessed()) {
-                $token->setProcessed();
-                Redis::get_redis()->set($token->getName()->asString(), serialize($token));
-            }
-            Redis::get_redis()->save();
+            Redis::get_redis()->set($token->getName()->asString(), serialize($token));
         }
+        Redis::get_redis()->save();
+
     }
 }

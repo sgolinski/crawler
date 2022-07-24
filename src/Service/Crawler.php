@@ -3,7 +3,6 @@
 namespace CrawlerCoinMarketCap\Service;
 
 use ArrayIterator;
-
 use CrawlerCoinMarketCap\Entity\Token;
 use CrawlerCoinMarketCap\Factory;
 use CrawlerCoinMarketCap\Reader\RedisReader;
@@ -106,47 +105,39 @@ EOF;
                     ->findElement(WebDriverBy::tagName('a'))
                     ->findElement(WebDriverBy::tagName('p'))
                     ->getText();
-
                 $name = Name::fromString($name);
 
                 $token = RedisReader::readTokenByName($name->asString());
 
                 if ($token !== null) {
-                    $currentTimestamp = time();
-                    if ($currentTimestamp - $token->getCreated() < 3600) {
-                        continue;
-                    }
-                    $token->setDropPercent($percent);
-                    $token->setCreated($currentTimestamp);
-                    $token->setData();
-                } else {
-                    $url = $webElement
-                        ->findElement(WebDriverBy::tagName('a'))
-                        ->getAttribute('href');
-                    $url = Url::fromString($url);
-
-                    $price = $webElement
-                        ->findElement(WebDriverBy::cssSelector('td:nth-child(3)'))
-                        ->getText();
-                    $price = Price::fromFloat((float)$price);
-
-                    $currentTimestamp = time();
-
-                    $address = Address::fromString('');
-                    $chain = Chain::fromString('');
-
-                    $token = Factory::createBscToken(
-                        $name,
-                        $price,
-                        $percent,
-                        $url,
-                        $address,
-                        $currentTimestamp,
-                        $chain,
-                        false
-                    );
+                    continue;
                 }
-                $this->currentScrappedTokens[] = $token;
+
+                $url = $webElement
+                    ->findElement(WebDriverBy::tagName('a'))
+                    ->getAttribute('href');
+                $url = Url::fromString($url);
+
+                $price = $webElement
+                    ->findElement(WebDriverBy::cssSelector('td:nth-child(3)'))
+                    ->getText();
+                $price = Price::fromFloat((float)$price);
+
+                $currentTimestamp = time();
+
+                $address = Address::fromString('');
+                $chain = Chain::fromString('');
+
+                $this->currentScrappedTokens[] = Factory::createBscToken(
+                    $name,
+                    $price,
+                    $percent,
+                    $url,
+                    $address,
+                    $currentTimestamp,
+                    $chain
+                );
+
             } catch (Exception $e) {
                 echo 'Error when crawl information ' . $e->getMessage() . PHP_EOL;
                 continue;
@@ -162,9 +153,6 @@ EOF;
         foreach ($this->currentScrappedTokens as $token) {
             try {
                 assert($token instanceof Token);
-                if ($token->isComplete()) {
-                    continue;
-                }
 
                 $this->client->refreshCrawler();
                 $this->client
@@ -182,9 +170,7 @@ EOF;
                 $address = Address::fromString($cont);
                 $token->setAddress($address);
                 $token->setChain($chain);
-                $token->setData();
                 $token->setPoocoinAddress($address);
-                $token->setData();
 
             } catch
             (Exception $exception) {
