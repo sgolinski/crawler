@@ -28,6 +28,7 @@ return array(
     'Psr\\Http\\Client\\' => array($vendorDir . '/psr/http-client/src'),
     'Psr\\EventDispatcher\\' => array($vendorDir . '/psr/event-dispatcher/src'),
     'Psr\\Container\\' => array($vendorDir . '/psr/container/src'),
+    'Predis\\' => array($vendorDir . '/predis/predis/src'),
     'Masterminds\\' => array($vendorDir . '/masterminds/html5/src'),
     'Maknz\\Slack\\' => array($vendorDir . '/alek13/slack/src'),
     'GuzzleHttp\\Psr7\\' => array($vendorDir . '/guzzlehttp/psr7/src'),

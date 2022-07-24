@@ -18,7 +18,9 @@ class BscToken implements Token
     public ?Address $address;
     public Url $url;
     public int $created;
+    private bool $completeData;
     private string $pooCoinAddress;
+    private bool $processed;
 
 
     public function __construct(
@@ -27,7 +29,8 @@ class BscToken implements Token
         Url         $url,
         Address     $address,
         int         $created,
-        Chain       $chain
+        Chain       $chain,
+        bool        $processed
     )
     {
         $this->name = $name;
@@ -37,6 +40,8 @@ class BscToken implements Token
         $this->address = $address;
         $this->created = $created;
         $this->chain = $chain;
+        $this->completeData = false;
+        $this->processed = $processed;
     }
 
     public function getName(): Name
@@ -65,7 +70,9 @@ class BscToken implements Token
         return "Name: " . $this->getName()->asString() . PHP_EOL .
             "Drop percent: -" . $this->getPercent()->asFloat() . '%' . PHP_EOL .
             "Cmc: " . $this->getUrl()->asString() . PHP_EOL .
-            "Poocoin:  " . $this->getPoocoinAddress() . PHP_EOL;
+            "Poocoin:  " . $this->getPoocoinAddress() . PHP_EOL .
+            'Chain: ' . $this->getChain()->asString() . PHP_EOL .
+            'Scrapped with Redis';
     }
 
     public function setDropPercent(DropPercent $dropPercent)
@@ -130,6 +137,6 @@ class BscToken implements Token
 
     public function setPoocoinAddress(Address $address): void
     {
-       $this->pooCoinAddress = str_replace("https://bscscan.com/token/", "https://poocoin.app/tokens/", $address->asString());
+        $this->pooCoinAddress = str_replace("https://bscscan.com/token/", "https://poocoin.app/tokens/", $address->asString());
     }
 }

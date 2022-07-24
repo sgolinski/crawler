@@ -1,6 +1,8 @@
 <?php
 
 namespace CrawlerCoinMarketCap\Datastore;
+use Exception;
+use Predis\Client;
 
 class Redis
 {
