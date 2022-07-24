@@ -107,9 +107,9 @@ EOF;
                     ->getText();
                 $name = Name::fromString($name);
 
-                $token = RedisReader::readTokenByName($name->asString());
+                $token = RedisReader::findKey($name->asString());
 
-                if ($token !== null) {
+                if ($token) {
                     continue;
                 }
 

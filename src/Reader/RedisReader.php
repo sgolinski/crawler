@@ -15,4 +15,9 @@ class RedisReader implements Reader
         }
         return null;
     }
+
+    public static function findKey($name): bool
+    {
+        return Redis::get_redis()->exists($name->asString());
+    }
 }
