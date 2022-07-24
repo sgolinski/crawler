@@ -1,6 +1,7 @@
 <?php
 
 use CrawlerCoinMarketCap\Factory;
+use CrawlerCoinMarketCap\Writer\RedisWriter;
 
 require __DIR__ . '/vendor/autoload.php'; // Composer's autoloader
 
@@ -10,11 +11,14 @@ $crawler = Factory::createCrawlerService();
 $alertService = Factory::createAlertService();
 
 $crawler->invoke();
-$currentCoins = $crawler->getTokensWithInformation();
+$currentCoins = $crawler->getCurrentScrappedTokens();
+
 if (empty($currentCoins)) {
     $crawler->getClient()->quit();
     die('Nothing to show' . PHP_EOL);
 }
 $alertService->sendMessage($currentCoins);
-$crawler->resetTokensWithInformation();
-echo 'Downloading information about gainers and losers ' . date('H:i:s') . PHP_EOL;
+echo 'Downloading information about large movers from last hour ' . date('H:i:s') . PHP_EOL;
+echo 'Start saving to Redis ' . date('H:i:s') . PHP_EOL;
+RedisWriter::writeToRedis($currentCoins);
+echo 'Finish saving to Redis ' . date('H:i:s') . PHP_EOL;

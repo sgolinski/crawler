@@ -18,6 +18,7 @@ class BscToken implements Token
     public ?Address $address;
     public Url $url;
     public int $created;
+    private string $pooCoinAddress;
 
 
     public function __construct(
@@ -97,4 +98,38 @@ class BscToken implements Token
         return str_replace("https://bscscan.com/token/", "https://poocoin.app/tokens/", $this->address->asString());
     }
 
+    public function getChain(): Chain
+    {
+        return $this->chain;
+    }
+
+    public function isComplete(): bool
+    {
+        return $this->completeData;
+    }
+
+    public function setData(): void
+    {
+        $this->completeData = true;
+    }
+
+    public function setChain(Chain $chain)
+    {
+        $this->chain = $chain;
+    }
+
+    public function isProcessed(): bool
+    {
+        return $this->processed;
+    }
+
+    public function setProcessed(): void
+    {
+        $this->processed = true;
+    }
+
+    public function setPoocoinAddress(Address $address): void
+    {
+       $this->pooCoinAddress = str_replace("https://bscscan.com/token/", "https://poocoin.app/tokens/", $address->asString());
+    }
 }

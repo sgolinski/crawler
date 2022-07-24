@@ -3,16 +3,16 @@
 namespace CrawlerCoinMarketCap\Service;
 
 use ArrayIterator;
+
 use CrawlerCoinMarketCap\Entity\Token;
 use CrawlerCoinMarketCap\Factory;
-use CrawlerCoinMarketCap\Reader\FileReader;
+use CrawlerCoinMarketCap\Reader\RedisReader;
 use CrawlerCoinMarketCap\ValueObjects\Address;
 use CrawlerCoinMarketCap\ValueObjects\Chain;
 use CrawlerCoinMarketCap\ValueObjects\DropPercent;
 use CrawlerCoinMarketCap\ValueObjects\Name;
 use CrawlerCoinMarketCap\ValueObjects\Price;
 use CrawlerCoinMarketCap\ValueObjects\Url;
-use CrawlerCoinMarketCap\Writer\FileWriter;
 use Exception;
 use Facebook\WebDriver\Remote\RemoteWebElement;
 use Facebook\WebDriver\WebDriverBy;
@@ -21,6 +21,10 @@ use Symfony\Component\Panther\Client as PantherClient;
 class Crawler
 {
     private PantherClient $client;
+
+    private array $currentScrappedTokens = [];
+
+    private const URL = 'https://coinmarketcap.com/gainers-losers/';
 
     private const SCRIPT = <<<EOF
 // get all DIV elements
@@ -43,24 +47,6 @@ var dropdown = clickDiv.nextSibling;
 dropdown.querySelector("button").click();
 EOF;
 
-    private array $tokensFromLastCronjob = [];
-
-    private array $tokensWithInformation = [];
-
-    private array $tokensWithoutInformation = [];
-
-    private array $tokensFromCurrentCronjob = [];
-
-    public array $allTokensProcessed;
-
-    private const URL = 'https://coinmarketcap.com/gainers-losers/';
-
-    public function __construct()
-    {
-        $this->tokensFromLastCronjob = FileReader::readTokensFromLastCronJob();
-        $this->allTokensProcessed = FileReader::readTokensAlreadyProcessed();
-    }
-
     public function invoke()
     {
         try {
@@ -71,9 +57,6 @@ EOF;
             $content = $this->getContent();
             $this->createTokensFromContent($content);
             $this->assignChainAndAddress();
-            $this->tokensFromLastCronjob = [];
-            FileWriter::writeTokensFromLastCronJob($this->tokensFromCurrentCronjob);
-            FileWriter::writeTokensToListTokensAlreadyProcessed($this->allTokensProcessed);
 
         } catch (Exception $exception) {
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
@@ -110,7 +93,8 @@ EOF;
             assert($webElement instanceof RemoteWebElement);
 
             try {
-                $percent = (float)$webElement->findElement(WebDriverBy::cssSelector('td:nth-child(4)'))
+                $percent = (float)$webElement
+                    ->findElement(WebDriverBy::cssSelector('td:nth-child(4)'))
                     ->getText();
                 $percent = DropPercent::fromFloat((float)$percent);
 
@@ -118,32 +102,31 @@ EOF;
                     continue;
                 }
 
-                $name = $webElement->findElement(WebDriverBy::tagName('a'))
-                    ->findElement(WebDriverBy::tagName('p'))->getText();
+                $name = $webElement
+                    ->findElement(WebDriverBy::tagName('a'))
+                    ->findElement(WebDriverBy::tagName('p'))
+                    ->getText();
+
                 $name = Name::fromString($name);
 
-                $fromLastRound = $this->returnTokenIfIsFromLastCronjob($name);
+                $token = RedisReader::readTokenByName($name->asString());
 
-                if ($fromLastRound !== null) {
-                    $this->tokensFromCurrentCronjob[] = $fromLastRound;
-                    continue;
-                }
-
-                $find = $this->getFromRecordedTokens($name);
-
-                if ($find !== null) {
+                if ($token !== null) {
                     $currentTimestamp = time();
-                    $find->setDropPercent($percent);
-                    $find->setCreated($currentTimestamp);
-                    $this->tokensWithInformation[] = $find;
-                    $this->tokensFromCurrentCronjob[] = $find;
-
+                    if ($currentTimestamp - $token->getCreated() < 3600) {
+                        continue;
+                    }
+                    $token->setDropPercent($percent);
+                    $token->setCreated($currentTimestamp);
+                    $token->setData();
                 } else {
-                    $url = $webElement->findElement(WebDriverBy::tagName('a'))
+                    $url = $webElement
+                        ->findElement(WebDriverBy::tagName('a'))
                         ->getAttribute('href');
                     $url = Url::fromString($url);
 
-                    $price = $webElement->findElement(WebDriverBy::cssSelector('td:nth-child(3)'))
+                    $price = $webElement
+                        ->findElement(WebDriverBy::cssSelector('td:nth-child(3)'))
                         ->getText();
                     $price = Price::fromFloat((float)$price);
 
@@ -151,8 +134,19 @@ EOF;
 
                     $address = Address::fromString('');
                     $chain = Chain::fromString('');
-                    $this->tokensWithoutInformation[] = Factory::createBscToken($name, $price, $percent, $url, $address, $currentTimestamp, $chain);
+
+                    $token = Factory::createBscToken(
+                        $name,
+                        $price,
+                        $percent,
+                        $url,
+                        $address,
+                        $currentTimestamp,
+                        $chain,
+                        false
+                    );
                 }
+                $this->currentScrappedTokens[] = $token;
             } catch (Exception $e) {
                 echo 'Error when crawl information ' . $e->getMessage() . PHP_EOL;
                 continue;
@@ -165,68 +159,45 @@ EOF;
     {
         echo 'Start assigning chain and address ' . date('H:i:s', time()) . PHP_EOL;
 
-        foreach ($this->tokensWithoutInformation as $token) {
+        foreach ($this->currentScrappedTokens as $token) {
             try {
+                assert($token instanceof Token);
+                if ($token->isComplete()) {
+                    continue;
+                }
+
                 $this->client->refreshCrawler();
-                $this->client->get($token->getUrl()->asString());
+                $this->client
+                    ->get($token->getUrl()->asString());
                 $cont = $this->client->getCrawler()
                     ->filter('div.content')
                     ->filter('a.cmc-link')
                     ->getAttribute('href');
 
-                assert($token instanceof Token);
-                if (!empty($cont) && str_contains($cont, 'bsc')) {
-                    $chain = Chain::fromString('bsc');
-                    $address = Address::fromString($cont);
-                    $newToken = Factory::createBscToken(
-                        $token->getName(), $token->getPrice(),
-                        $token->getPercent(),
-                        $token->getUrl(),
-                        $address,
-                        $token->getCreated(),
-                        $chain
-                    );
-                    $this->tokensWithInformation[] = $newToken;
-                    $this->tokensFromCurrentCronjob[] = $newToken;
-                    $this->allTokensProcessed[] = $newToken;
+                if (empty($cont) && !str_contains($cont, 'bsc')) {
+                    continue;
                 }
-            } catch (Exception $exception) {
+
+                $chain = Chain::fromString('bsc');
+                $address = Address::fromString($cont);
+                $token->setAddress($address);
+                $token->setChain($chain);
+                $token->setData();
+                $token->setPoocoinAddress($address);
+                $token->setData();
+
+            } catch
+            (Exception $exception) {
                 continue;
             }
         }
-        $this->tokensWithoutInformation = [];
+
         echo 'Finish assigning chain and address ' . date('H:i:s', time()) . PHP_EOL;
     }
 
-    private function getFromRecordedTokens(
-        Name $name
-    ): ?Token
+    public function getCurrentScrappedTokens(): array
     {
-        foreach ($this->allTokensProcessed as $existedRecord) {
-            assert($existedRecord instanceof Token);
-            if ($existedRecord->getName()->asString() === $name->asString()) {
-                return $existedRecord;
-            }
-        }
-        return null;
-    }
-
-    private function returnTokenIfIsFromLastCronjob(
-        Name $name,
-    ): ?Token
-    {
-
-        foreach ($this->tokensFromLastCronjob as $tokenFromLastCronjob) {
-            if ($tokenFromLastCronjob->getName()->asString() === $name->asString()) {
-                return $tokenFromLastCronjob;
-            }
-        }
-        return null;
-    }
-
-    public function getTokensWithInformation(): array
-    {
-        return $this->tokensWithInformation;
+        return $this->currentScrappedTokens;
     }
 
     public function getClient(): PantherClient
@@ -242,9 +213,5 @@ EOF;
         $this->client->get(self::URL);
     }
 
-    public function resetTokensWithInformation()
-    {
-        $this->tokensWithInformation = [];
-    }
 
 }

@@ -1,8 +1,8 @@
 version: "3.7"
 
 networks:
-  coinmarket:
-    external: true
+  cmc-net:
+    driver: "bridge"
 
 services:
   php-cli:
@@ -13,4 +13,25 @@ services:
       - ../:/mnt/app
     restart: always
     networks:
-      - coinmarket
+      - cmc-net
+    links:
+      - cmc-redis
+
+  cmc-redis:
+    image: redis:4.0
+    container_name: crawler_redis
+    restart: always
+    command:
+      - 'redis-server'
+      - '--loglevel ${REDIS_LOGLEVEL:-warning}'
+      - '--databases 2'
+      - '--save 900 1'
+      - '--save 300 10'
+      - '--save 60 10000'
+      - '--maxmemory ${REDIS_MAXMEM:-50mb}'
+    volumes:
+      - ./docker/redis/data:/data
+    ports:
+      - "6382:6379"
+    networks:
+      - cmc-net

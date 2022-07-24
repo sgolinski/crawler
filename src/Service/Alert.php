@@ -2,7 +2,6 @@
 
 namespace CrawlerCoinMarketCap\Service;
 
-use CrawlerCoinMarketCap\Entity\BscToken;
 use CrawlerCoinMarketCap\Entity\Token;
 use CrawlerCoinMarketCap\Factory;
 use Maknz\Slack\Client as SlackClient;
@@ -24,7 +23,7 @@ class Alert
     {
         foreach ($currentRound as $coin) {
             assert($coin instanceof Token);
-            if ($coin->chain !== null) {
+            if ($coin->getChain()->asString() === 'bsc') {
                 $message = Factory::createSlackMessage()->setText($coin->alert());
                 $this->slack->sendMessage($message);
             }

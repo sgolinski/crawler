@@ -2,9 +2,9 @@
 
 namespace CrawlerCoinMarketCap\Reader;
 
+use CrawlerCoinMarketCap\Entity\Token;
+
 interface Reader
 {
-    public static function readTokensFromLastCronJob(): array;
-
-    public static function readTokensAlreadyProcessed(): array;
+    public static function readTokenByName(string $name): ?Token;
 }
