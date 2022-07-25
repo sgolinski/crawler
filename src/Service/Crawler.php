@@ -56,10 +56,11 @@ EOF;
             $content = $this->getContent();
             $this->createTokensFromContent($content);
             $this->assignChainAndAddress();
-            $this->client->restart();
         } catch (Exception $exception) {
+            $this->client->restart();
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
         } finally {
+            $this->client->close();
             $this->client->quit();
         }
     }
