@@ -18,7 +18,6 @@ try {
     $crawler->getClient()->restart();
 }
 
-
 $currentCoins = $crawler->getCurrentScrappedTokens();
 
 if (empty($currentCoins)) {
