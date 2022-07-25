@@ -56,7 +56,7 @@ EOF;
             $content = $this->getContent();
             $this->createTokensFromContent($content);
             $this->assignChainAndAddress();
-
+            $this->getClient()->restart();
         } catch (Exception $exception) {
             echo $exception->getFile() . ' ' . $exception->getLine() . PHP_EOL;
         } finally {
@@ -107,7 +107,7 @@ EOF;
                     ->getText();
                 $name = Name::fromString($name);
 
-                $token = RedisReader::findKey($name->asString());
+                $token = RedisReader::findKey($name);
 
                 if ($token) {
                     continue;

@@ -4,6 +4,7 @@ namespace CrawlerCoinMarketCap\Reader;
 
 use CrawlerCoinMarketCap\Datastore\Redis;
 use CrawlerCoinMarketCap\Entity\Token;
+use CrawlerCoinMarketCap\ValueObjects\Name;
 
 class RedisReader implements Reader
 {
@@ -16,7 +17,7 @@ class RedisReader implements Reader
         return null;
     }
 
-    public static function findKey($name): bool
+    public static function findKey(Name $name): bool
     {
         return Redis::get_redis()->exists($name->asString());
     }
